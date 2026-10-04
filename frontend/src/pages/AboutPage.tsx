@@ -7,6 +7,7 @@ import ArticleToc from "../components/ArticleToc";
 import { api } from "../api/client";
 import { aboutApi, type AboutBlock, type AboutPageData } from "../api/about";
 import { newsApi } from "../api/news";
+import { PANORAMA_PAGE_URL } from "../constants";
 import "../styles/detail.css";
 import "../styles/about.css";
 
@@ -200,7 +201,7 @@ export default function AboutPage() {
                         )}
                         {block.key === "campus-overview" && (
                           <p style={{ marginTop: "var(--s-4)" }}>
-                            <a className="btn btn-primary" href="/static/panorama/index.html" target="_blank" rel="noopener noreferrer">
+                            <a className="btn btn-primary" href={PANORAMA_PAGE_URL} target="_blank" rel="noopener noreferrer">
                               校园全景图
                             </a>
                           </p>

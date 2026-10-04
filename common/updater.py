@@ -40,7 +40,7 @@ from common.policy import SitePolicy, get_policy, invalidate_policy_cache
 
 log = logging.getLogger("updater")
 
-DEFAULT_GITHUB_REPO = "nanhui-no1-media/Backend"
+DEFAULT_GITHUB_REPO = "nanhui-no1-media/club-management-website"
 DRAIN_SECONDS = 10
 HEALTH_WAIT_SECONDS = 3
 RETRY_BASE_SECONDS = 5

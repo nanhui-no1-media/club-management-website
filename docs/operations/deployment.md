@@ -123,13 +123,13 @@ Django 在 `DJANGO_DEBUG=0` 时也会对 HTTPS 响应发同一条 HSTS（`SECURE
 ```bash
 # 公开仓库；管道安装必须带 -y（否则 read 会吞掉脚本自身）。
 # 私有仓库先 export GITHUB_TOKEN=...
-curl -fsSL https://github.com/nanhui-no1-media/Backend/releases/latest/download/install.sh | sudo bash -s -- -y
+curl -fsSL https://github.com/nanhui-no1-media/club-management-website/releases/latest/download/install.sh | sudo bash -s -- -y
 ```
 
 或下载后再跑（便于先看参数）：
 
 ```bash
-curl -fsSL https://github.com/nanhui-no1-media/Backend/releases/latest/download/install.sh -o install.sh
+curl -fsSL https://github.com/nanhui-no1-media/club-management-website/releases/latest/download/install.sh -o install.sh
 sudo APP_DIR=/opt/club APP_USER=club SERVER_NAME=club.example.com \
     FRONTEND_URL=http://club.example.com SUPERUSER_PASSWORD='...' bash install.sh -y
 ```
@@ -205,7 +205,7 @@ sudo systemctl restart club
 | `EMAIL_HOST_USER` / `EMAIL_HOST_PASSWORD` | 163 邮箱账号与 **SMTP 授权码** | 按需；不配则邮件走 console 后端 |
 | `TURNSTILE_SITE_KEY` / `TURNSTILE_SECRET_KEY` | Cloudflare Turnstile | 按需；两项都空 = 关闭，只填一半也视为关闭 |
 | `UPDATE_GITHUB_TOKEN` | 读 Release 用的 GitHub PAT | **必填**（自动更新依赖） |
-| `UPDATE_GITHUB_REPO` | `owner/repo` | 默认 `nanhui-no1-media/Backend` |
+| `UPDATE_GITHUB_REPO` | `owner/repo` | 默认 `nanhui-no1-media/club-management-website` |
 
 逐项默认值、派生逻辑与相关测试见[配置参考](../configuration.md)。另有几个不在模板中、由代码读取的变量：`CLUB_SPAWN_UPDATER=0`（只起 web、不拉起更新守护进程，排障用）、`CLUB_UPDATER_SPAWNED`（由 `start.sh` 置 1）、`SERVICE_NAME`（更新器重载服务用，默认 `club`）。
 
@@ -419,7 +419,7 @@ SQLite 在并发写入时的典型问题：
 - `UPDATE_GITHUB_TOKEN` 为空 → 守护进程日志会打 `UPDATE_GITHUB_TOKEN empty; skip download`。
 - 站点策略 `auto_update_enabled` 关闭 → 跳过下载与应用。
 - 不在窗口内或距窗口结束不足截止分钟数 → 只下载不应用（`--apply-now` 可绕过）。
-- token 权限不足 / 仓库名不对 → 日志出现 `GitHub HTTP 401/403/404`；`UPDATE_GITHUB_REPO` 默认 `nanhui-no1-media/Backend`。
+- token 权限不足 / 仓库名不对 → 日志出现 `GitHub HTTP 401/403/404`；`UPDATE_GITHUB_REPO` 默认 `nanhui-no1-media/club-management-website`。
 - 想确认当前版本：`cat run/applied-release`；想看已下载的包：`ls -l backups/releases/`。
 
 ### 8.7 站点一直 503（维护页不撤）

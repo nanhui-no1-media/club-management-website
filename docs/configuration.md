@@ -25,7 +25,7 @@
 | `TURNSTILE_SITE_KEY` | Cloudflare Turnstile 站点公钥；经 `GET /site-policy/` 下发给前端 | 否 | 空。两项都空 = 关闭人机校验；**都填了才启用**（只填一半视为关闭） |
 | `TURNSTILE_SECRET_KEY` | Turnstile 服务端密钥（保密，永不下发） | 否 | 空 |
 | `UPDATE_GITHUB_TOKEN` | GitHub PAT，需能读该仓库 Releases（自动更新守护进程用） | 生产必填 | 空 |
-| `UPDATE_GITHUB_REPO` | 更新来源仓库，`owner/repo` | 否 | `nanhui-no1-media/Backend`（留空也回退到该值） |
+| `UPDATE_GITHUB_REPO` | 更新来源仓库，`owner/repo` | 否 | `nanhui-no1-media/club-management-website`（留空也回退到该值） |
 
 注意事项：
 
@@ -130,7 +130,7 @@ news, reviews, tutorials, recruitment, attachments, rest_framework_tus
 | `EMAIL_HOST` / `EMAIL_PORT` / `EMAIL_USE_SSL` | 配了 `EMAIL_HOST_USER` 才设：`smtp.163.com` / `465` / `True` |
 | `DEFAULT_FROM_EMAIL` | 配了 SMTP 时为 `EMAIL_HOST_USER` |
 | `TURNSTILE_SITE_KEY` / `TURNSTILE_SECRET_KEY` | 环境变量，默认空。两项都非空才启用（`accounts/turnstile.py::is_turnstile_enabled()`）；启用后 sitekey 经 `GET /site-policy/` 下发，secret 只留进程内 |
-| `UPDATE_GITHUB_TOKEN` / `UPDATE_GITHUB_REPO` | 环境变量；repo 默认 `nanhui-no1-media/Backend`（空串也回退）。窗口 / 轮询等旋钮在 `SiteSettings` |
+| `UPDATE_GITHUB_TOKEN` / `UPDATE_GITHUB_REPO` | 环境变量；repo 默认 `nanhui-no1-media/club-management-website`（空串也回退）。窗口 / 轮询等旋钮在 `SiteSettings` |
 
 ### 2.7 DRF 与 tus
 

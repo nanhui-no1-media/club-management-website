@@ -60,7 +60,7 @@ npm run build                              # Production build → frontend/dist/
 
 ### Issue tracker
 
-Issues and PRDs live as GitHub issues in `nanhui-no1-media/Backend`, managed via the `gh` CLI. See `docs/agents/issue-tracker.md`.
+Issues and PRDs live as GitHub issues in `nanhui-no1-media/club-management-website`, managed via the `gh` CLI. See `docs/agents/issue-tracker.md`.
 
 ### Triage labels
 

@@ -7,7 +7,7 @@
 # 两种入口：
 #   1) 已有源码树（git clone 或解压过的 release）：sudo ./scripts/install.sh
 #   2) 独立安装（无需先 clone）：把本脚本单独拿来跑，会拉最新 GitHub Release。
-#        curl -fsSL https://github.com/nanhui-no1-media/Backend/releases/latest/download/install.sh -o install.sh
+#        curl -fsSL https://github.com/nanhui-no1-media/club-management-website/releases/latest/download/install.sh -o install.sh
 #        sudo bash install.sh
 #      管道安装请加 -y（否则 read 会把脚本自身当输入）。私有仓库加 GITHUB_TOKEN。
 #
@@ -27,7 +27,7 @@
 #        SUPERUSER_USERNAME=admin SUPERUSER_PASSWORD='...' ./scripts/install.sh -y
 set -euo pipefail
 
-GITHUB_REPO="${GITHUB_REPO:-${UPDATE_GITHUB_REPO:-nanhui-no1-media/Backend}}"
+GITHUB_REPO="${GITHUB_REPO:-${UPDATE_GITHUB_REPO:-nanhui-no1-media/club-management-website}}"
 GITHUB_TOKEN="${GITHUB_TOKEN:-${UPDATE_GITHUB_TOKEN:-}}"
 SERVICE_NAME="${SERVICE_NAME:-club}"
 SERVER_NAME="${SERVER_NAME:-_}"

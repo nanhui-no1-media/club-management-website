@@ -287,8 +287,8 @@ TURNSTILE_SECRET_KEY = os.environ.get("TURNSTILE_SECRET_KEY", "")
 # repo is optional infra. Window / poll knobs live in SiteSettings (ADR-0010).
 UPDATE_GITHUB_TOKEN = os.environ.get("UPDATE_GITHUB_TOKEN", "")
 UPDATE_GITHUB_REPO = (
-    os.environ.get("UPDATE_GITHUB_REPO", "nanhui-no1-media/Backend")
-    or "nanhui-no1-media/Backend"
+    os.environ.get("UPDATE_GITHUB_REPO", "nanhui-no1-media/club-management-website")
+    or "nanhui-no1-media/club-management-website"
 )
 
 # Django REST Framework

@@ -59,6 +59,16 @@ for path in "${INCLUDE[@]}"; do
   fi
 done
 
+# 备用防线 1：static/panorama 完整性校验 —— 9 个必需文件缺任一即打包失败，
+# 防止「按钮已改、素材没进包」的线上 404 再次发生。
+PANORAMA_ASSETS=(index.html marzipano.js pano_1.jpg pano_2.jpg pano_3.jpg pano_4.jpg pano_5.jpg pano_6.jpg pano_7.jpg)
+for f in "${PANORAMA_ASSETS[@]}"; do
+  if [ ! -f "static/panorama/$f" ]; then
+    echo "missing required panorama asset: static/panorama/$f" >&2
+    exit 1
+  fi
+done
+
 echo "==> packing $(basename "$ARCHIVE")"
 tar -czf "$ARCHIVE" \
   --exclude='__pycache__' \
@@ -75,6 +85,16 @@ tar -czf "$ARCHIVE" \
   --exclude='run' \
   --exclude='backups' \
   "${INCLUDE[@]}"
+
+# 备用防线 2：产物自检 —— 打包后确认 panorama 首页真实进入 tar，
+# 缺失则删除坏包并失败，绝不发布残缺 Release。
+# （tr -d '\r'：Windows / MSYS 环境下 tar 列表可能带 CR 行尾，先归一化再精确匹配）
+if ! tar -tzf "$ARCHIVE" | tr -d '\r' | grep -qx "static/panorama/index.html"; then
+  echo "ERROR: static/panorama/index.html missing from archive; refusing to publish" >&2
+  rm -f "$ARCHIVE" "${ARCHIVE}.sha256"
+  exit 1
+fi
+echo "==> panorama assets verified inside archive"
 
 (
   cd "$OUT_DIR"

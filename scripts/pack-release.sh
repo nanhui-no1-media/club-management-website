@@ -39,6 +39,7 @@ INCLUDE=(
   .env.example
   frontend/dist
   static/maintenance.html
+  static/panorama
 )
 
 shopt -s nullglob

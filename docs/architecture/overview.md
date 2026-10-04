@@ -2,7 +2,7 @@
 
 > 前端内部结构见 [frontend.md](frontend.md)；环境搭建见 [快速开始](../getting-started.md)；生产部署见 [部署与运维](../operations/deployment.md)。
 
-南汇一中传媒社 Backend 是一个**单体 Django 应用**：同一进程对外提供 REST API（Django REST Framework）、Django Admin、WebSocket 实时推送（Django Channels）以及 React SPA 的托管与静态资源。生产形态为 Nginx + Gunicorn（ASGI / UvicornWorker，**单 worker**）+ SQLite，不依赖 Redis（[ADR-0015](../adr/0015-channels-without-redis.md)）。
+南汇一中传媒社的社团管理系统是一个**单体 Django 应用**：同一进程对外提供 REST API（Django REST Framework）、Django Admin、WebSocket 实时推送（Django Channels）以及 React SPA 的托管与静态资源。生产形态为 Nginx + Gunicorn（ASGI / UvicornWorker，**单 worker**）+ SQLite，不依赖 Redis（[ADR-0015](../adr/0015-channels-without-redis.md)）。
 
 ## 技术栈
 

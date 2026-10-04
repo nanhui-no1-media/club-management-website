@@ -1,6 +1,6 @@
 # API 总览
 
-本目录是南汇一中传媒社 Backend 的 HTTP / WebSocket 接口参考，按模块分册。所有接口由 Django + Django REST Framework 提供，Web 端、移动版与嵌入页共用同一套。
+本目录是南汇一中传媒社社团管理系统的 HTTP / WebSocket 接口参考，按模块分册。所有接口由 Django + Django REST Framework 提供，Web 端、移动版与嵌入页共用同一套。
 
 > 推荐阅读顺序：本篇（全局约定）→ [访问控制指南](../guides/access-control.md) 与 [身份验证指南](../guides/verification.md)（权限体系）→ 各模块分册。
 

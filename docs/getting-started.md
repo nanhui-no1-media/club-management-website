@@ -147,7 +147,7 @@ cd frontend && npm ci && npm run build                    # frontend job
 ## 目录结构速览
 
 ```text
-Backend/
+club-management-website/
 ├── config/            # Django 项目配置：settings.py / urls.py / asgi.py / wsgi.py
 ├── accounts/          # 账号、登录、邮箱验证、身份审核、会话、能力投影
 ├── about/             # 关于页内容

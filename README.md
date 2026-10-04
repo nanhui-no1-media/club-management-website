@@ -1,4 +1,4 @@
-# 社团管理系统 Backend
+# 南汇一中传媒社 · 社团管理系统
 
 这是一个以 Django 为核心、React 前端为展示层的社团内部管理系统。当前代码结构已经覆盖了用户认证、任务管理、活动/众议/征集/展示、新闻发布、提案/反馈、教程、招聘、评论与私信、通知、横幅公告和站点策略等核心场景，适用于校内社团的日常运营和后台管理。
 
@@ -6,14 +6,16 @@
 
 项目当前已经具备以下模块：
 
-- 认证与账号：登录、注册、邮箱验证、人工审核、密码重置、用户资料、会话管理
+- 认证与账号：登录、注册、邮箱验证、人工审核、认证码、密码重置、用户资料、会话管理
 - 内容管理：新闻、教程、关于页、站点政策
 - 协作管理：任务、标签、评论区、私信、提案/反馈
-- 提醒与运营：站内通知、横幅公告、全站禁言
-- 活动管理：活动、众议、征集、展示、审核
+- 提醒与运营：站内通知（可按来源开关）、横幅公告、全站禁言
+- 活动管理：活动、众议、征集、展示、公开投票、审核
+- 问卷系统：SurveyJS 问卷（编辑 / 作答 / 统计与导出）
 - 招聘与审批：招聘信息、面试/审核流程
+- 移动端：独立的手机版站点（`/#/m`）
 - 后台管理：Django Admin + 自定义视图 + 前端 SPA
-- 运维能力：`scripts/install.sh` / `start.sh` 自动部署、systemd + Nginx + Gunicorn（ASGI / 单 worker），适合内部低门槛生产环境
+- 运维能力：一键部署脚本（`scripts/install.sh`）、GitHub Release 自动更新（维护页 / 回滚）、systemd + Nginx + Gunicorn（ASGI / 单 worker），适合内部低门槛生产环境
 
 ## 2. 技术栈
 
@@ -63,7 +65,7 @@ npm run build
 ## 4. 目录结构
 
 ```text
-Backend/
+club-management-website/
 ├── accounts/             # 账号、验证、资料、权限相关
 ├── activities/           # 活动与活动类型（众议/征集/展示）
 ├── about/                # 关于页内容管理
@@ -98,6 +100,7 @@ Backend/
 - 指南：`docs/guides/`（访问控制 / 身份验证 / 审核系统 / 问卷）
 - 运维：[`docs/operations/deployment.md`](docs/operations/deployment.md) · [`docs/operations/admin-guide.md`](docs/operations/admin-guide.md)
 - ADR 设计记录：[`docs/adr/`](docs/adr/)
+- GitHub Wiki（对外入口）：<https://github.com/nanhui-no1-media/club-management-website/wiki>
 
 ## 6. 主要入口和 URL
 
@@ -114,6 +117,7 @@ Backend/
 - 考试看板：`/exam_board/`，广播 `/ws/exam-board/`
 - 附件上传：`/uploads/`
 - 站点政策：`/site-policy/`
+- 手机版（移动端站点）：`/#/m`
 
 注意：本项目使用 Django + React 的单页架构，前端路由需要由 Django 回落到 `index.html`，非 API 路径都会进入 SPA 入口。
 
@@ -147,3 +151,7 @@ sudo ./scripts/install.sh                # 一键部署生产环境
 3. [docs/api/README.md](docs/api/README.md)
 4. [docs/operations/deployment.md](docs/operations/deployment.md)
 5. [docs/operations/admin-guide.md](docs/operations/admin-guide.md)
+
+---
+
+维护：**Echo**

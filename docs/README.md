@@ -1,6 +1,6 @@
 # 项目文档
 
-南汇一中传媒社 Backend 的文档中心。文档与代码同步演进——以代码为准，发现出入请提 Issue。
+南汇一中传媒社社团管理系统的文档中心。文档与代码同步演进——以代码为准，发现出入请提 Issue。
 
 ## 入门
 
@@ -42,3 +42,8 @@
 - [ADR（架构决策记录）](adr/) —— 0001–0020，重要决策的来龙去脉
 - 领域术语与项目概览：[CONTEXT.md](../CONTEXT.md)
 - AI 协作流程约定：[docs/agents/](agents/)
+- GitHub Wiki（对外入口）：<https://github.com/nanhui-no1-media/club-management-website/wiki>
+
+---
+
+维护：**Echo**

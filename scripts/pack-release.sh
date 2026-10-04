@@ -86,10 +86,9 @@ tar -czf "$ARCHIVE" \
   --exclude='backups' \
   "${INCLUDE[@]}"
 
-# 备用防线 2：产物自检 —— 打包后确认 panorama 首页真实进入 tar，
-# 缺失则删除坏包并失败，绝不发布残缺 Release。
-# （tr -d '\r'：Windows / MSYS 环境下 tar 列表可能带 CR 行尾，先归一化再精确匹配）
-if ! tar -tzf "$ARCHIVE" | tr -d '\r' | grep -qx "static/panorama/index.html"; then
+# 备用防线 2：产物自检 —— 直接从归档提取 panorama 首页成员，失败即拒绝发布。
+# （不解析完整 tar 列表，避免大归档 + 管道在 CI（set -e）下的 SIGPIPE 隐患）
+if ! tar -xzf "$ARCHIVE" -O static/panorama/index.html > /dev/null 2>&1; then
   echo "ERROR: static/panorama/index.html missing from archive; refusing to publish" >&2
   rm -f "$ARCHIVE" "${ARCHIVE}.sha256"
   exit 1

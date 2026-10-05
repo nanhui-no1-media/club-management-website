@@ -227,3 +227,8 @@ __marimo__/
 
 .idea/
 frontend/node_modules/
+
+# Playwright E2E
+frontend/playwright-report/
+frontend/test-results/
+frontend/e2e/.auth/

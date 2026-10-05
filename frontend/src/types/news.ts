@@ -53,7 +53,8 @@ export interface NewsFormData {
   featured: boolean;
   is_published: boolean;
   tag_ids: number[];
-  cover_image?: File | null;
+  /** 封面引用：upload_cover 返回的 URL；空串 = 清除封面 */
+  cover_image_ref?: string;
 }
 
 export const NEWS_PAGE_SIZE = 20;

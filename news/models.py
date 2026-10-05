@@ -5,6 +5,11 @@ from django.conf import settings
 from django.db import models
 
 
+# 封面图上限与允许类型（序列化器与 upload_cover 端点共用；与正文内嵌图同规格）
+COVER_MAX_SIZE = 5 * 1024 * 1024
+COVER_ALLOWED_TYPES = ("image/jpeg", "image/png", "image/gif", "image/webp")
+
+
 def cover_upload_path(instance, filename):
     """新闻封面图：统一存到 news_covers/，文件名用 uuid 防冲突。"""
     ext = os.path.splitext(filename)[1]

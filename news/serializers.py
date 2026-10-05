@@ -1,5 +1,9 @@
 import os
+import re
+from urllib.parse import unquote, urlparse
 
+from django.conf import settings
+from django.core.files.storage import default_storage
 from django.utils import timezone
 from rest_framework import serializers
 
@@ -8,7 +12,7 @@ from reviews.visibility import comment_for, public_q, status_of
 from tasks.models import Tag
 from tasks.serializers import CommentThreadHostMixin, SimpleUserSerializer
 
-from .models import News
+from .models import COVER_ALLOWED_TYPES, COVER_MAX_SIZE, News
 from .thumbnails import make_cover_thumbnail
 from attachments.models import Attachment
 from attachments.serializers import AttachmentSerializer
@@ -16,9 +20,9 @@ from attachments.serializers import AttachmentSerializer
 # 正文 HTML 清洗：复用共享净化器 common.rich_text.sanitize_html（见 validate_content）。
 # iframe 策略与全站一致（任意 https + 服务端盖 sandbox；详见 common/rich_text.py）。
 
-# 封面图上限：5MB（与正文内嵌图一致；头像仍为 2MB，见 accounts.views.profile_update_view）
-_COVER_MAX_SIZE = 5 * 1024 * 1024
-_COVER_ALLOWED_TYPES = ("image/jpeg", "image/png", "image/gif", "image/webp")
+# 封面图上限（COVER_MAX_SIZE / COVER_ALLOWED_TYPES）定义在 models.py，与 upload_cover 端点共用。
+# 封面引用（cover_image_ref）：本存储 news_covers/ 下、uuid 命名的文件（upload_cover 的产物）。
+_COVER_REF_RE = re.compile(r"news_covers/[0-9a-f]{32}(?:\.[A-Za-z0-9]+)?")
 
 
 def _absolute_file_url(file_field, request):
@@ -118,6 +122,10 @@ class NewsDetailSerializer(CommentThreadHostMixin, serializers.ModelSerializer):
     author = SimpleUserSerializer(read_only=True)
     tags = NewsTagSerializer(many=True, read_only=True)
     cover_image = serializers.ImageField(write_only=True, required=False, allow_null=True)
+    cover_image_ref = serializers.CharField(
+        write_only=True, required=False, allow_blank=True, max_length=500,
+        help_text="封面引用：upload_cover 返回的 URL；空串 = 清除封面。",
+    )
     cover_image_url = serializers.SerializerMethodField()
     cover_thumbnail_url = serializers.SerializerMethodField()
     related = serializers.SerializerMethodField()
@@ -134,7 +142,7 @@ class NewsDetailSerializer(CommentThreadHostMixin, serializers.ModelSerializer):
         model = News
         fields = [
             "id", "title", "summary", "content",
-            "cover_image", "cover_image_url", "cover_thumbnail_url",
+            "cover_image", "cover_image_ref", "cover_image_url", "cover_thumbnail_url",
             "author", "tags", "tag_ids",
             "featured", "views", "is_published", "review_status", "review_comment", "published_at",
             "draft_saved_at",
@@ -175,13 +183,46 @@ class NewsDetailSerializer(CommentThreadHostMixin, serializers.ModelSerializer):
         # 服务端清洗：防止绕过编辑器注入恶意 HTML（XSS）
         return sanitize_html(value or "")
 
+    def validate(self, attrs):
+        if "cover_image_ref" in attrs and "cover_image" in attrs:
+            raise serializers.ValidationError(
+                {"cover_image_ref": "cover_image 与 cover_image_ref 不能同时使用。"}
+            )
+        return attrs
+
     def validate_cover_image(self, value):
         # 大小与类型双校验（客户端 5MB 检查可被直接 API 调用绕过）
         if value:
-            if getattr(value, "size", 0) > _COVER_MAX_SIZE:
+            if getattr(value, "size", 0) > COVER_MAX_SIZE:
                 raise serializers.ValidationError("封面图不能超过 5MB。")
-            if getattr(value, "content_type", "") not in _COVER_ALLOWED_TYPES:
+            if getattr(value, "content_type", "") not in COVER_ALLOWED_TYPES:
                 raise serializers.ValidationError("封面仅支持 JPG、PNG、GIF、WebP 格式。")
+        return value
+
+    def validate_cover_image_ref(self, value):
+        """封面引用校验："" = 清除；否则须指向本存储 news_covers/ 下的文件。
+
+        防目录穿越 / 误引用缩略图；不允许引用其他新闻已在用的封面（避免替换时误删他人文件）。
+        """
+        value = (value or "").strip()
+        if value == "":
+            return ""
+        if "://" in value:
+            value = urlparse(value).path  # 只做路径解析，绝不请求外部地址
+        value = unquote(value)
+        media_url = settings.MEDIA_URL or "/media/"
+        if value.startswith(media_url):
+            value = value[len(media_url):]
+        value = value.lstrip("/")
+        if not _COVER_REF_RE.fullmatch(value):
+            raise serializers.ValidationError("封面引用无效，请重新上传。")
+        used = News.objects.filter(cover_image=value)
+        if self.instance is not None:
+            used = used.exclude(pk=self.instance.pk)
+        if used.exists():
+            raise serializers.ValidationError("该封面已被其他新闻使用，请重新上传。")
+        if not default_storage.exists(value):
+            raise serializers.ValidationError("封面文件不存在，请重新上传。")
         return value
 
     def _sync_cover_thumbnail(self, news):
@@ -198,6 +239,10 @@ class NewsDetailSerializer(CommentThreadHostMixin, serializers.ModelSerializer):
 
     def create(self, validated_data):
         tags = validated_data.pop("tags", [])
+        ref = validated_data.pop("cover_image_ref", None)
+        if ref:
+            # 预上传封面（选完即传）：文件已在 news_covers/，直接引用；缩略图随后生成
+            validated_data["cover_image"] = ref
         # 默认发布：补发布时间
         if validated_data.get("is_published", True) and not validated_data.get("published_at"):
             validated_data["published_at"] = timezone.now()
@@ -219,6 +264,25 @@ class NewsDetailSerializer(CommentThreadHostMixin, serializers.ModelSerializer):
         elif cover_changed and not new_cover and instance.cover_thumbnail:
             # 封面被清空：缩略图一并清
             instance.cover_thumbnail.delete(save=False)
+        # 封面引用（选完即传的预上传挂载；空串 = 清除封面）
+        ref = validated_data.pop("cover_image_ref", None)
+        if ref is not None:
+            if ref == "":
+                if instance.cover_image:
+                    instance.cover_image.delete(save=False)
+                if instance.cover_thumbnail:
+                    instance.cover_thumbnail.delete(save=False)
+                instance.cover_image = ""
+                instance.cover_thumbnail = ""
+                cover_changed = False
+            elif ref != instance.cover_image.name:
+                if instance.cover_image:
+                    instance.cover_image.delete(save=False)
+                if instance.cover_thumbnail:
+                    instance.cover_thumbnail.delete(save=False)
+                instance.cover_image = ref
+                instance.cover_thumbnail = ""
+                cover_changed = True
         for attr, value in validated_data.items():
             setattr(instance, attr, value)
         # 由未发布转为发布时补发布时间

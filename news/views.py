@@ -17,7 +17,7 @@ from reviews.lifecycle import open_review
 from reviews.visibility import public_q, visible_queryset
 from tasks.models import Tag
 
-from .models import News, NewsView
+from .models import COVER_ALLOWED_TYPES, COVER_MAX_SIZE, News, NewsView, cover_upload_path
 from .permissions import CanManageNews, CanManageNewsDraft
 from .serializers import NewsDetailSerializer, NewsDraftSerializer, NewsListSerializer, NewsTagSerializer
 from .feed import build_feed
@@ -110,6 +110,26 @@ class NewsViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST,
             )
         path = default_storage.save(_content_image_path(file.name), file)
+        return Response({"url": request.build_absolute_uri(default_storage.url(path))})
+
+    @action(detail=False, methods=["post"], url_path="upload_cover")
+    def upload_cover(self, request):
+        """封面预上传（编辑页「选完即传」）：校验后存 news_covers/，返回 {url}。
+
+        保存稿件时以 ``cover_image_ref`` 字段引用返回的 url 完成挂载——
+        避免把文件捆在保存请求里（部分移动端浏览器对「带文件的 PATCH」不稳定）。
+        """
+        file = request.FILES.get("image")
+        if not file:
+            return Response({"detail": "请选择图片。"}, status=status.HTTP_400_BAD_REQUEST)
+        if file.size > COVER_MAX_SIZE:
+            return Response({"detail": "封面图不能超过 5MB。"}, status=status.HTTP_400_BAD_REQUEST)
+        if file.content_type not in COVER_ALLOWED_TYPES:
+            return Response(
+                {"detail": "封面仅支持 JPG、PNG、GIF、WebP 格式。"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        path = default_storage.save(cover_upload_path(None, file.name), file)
         return Response({"url": request.build_absolute_uri(default_storage.url(path))})
 
     @action(detail=True, methods=["get", "post", "delete"], url_path="draft")

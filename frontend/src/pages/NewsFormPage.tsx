@@ -46,8 +46,11 @@ export default function NewsFormPage() {
   const [title, setTitle] = useState("");
   const [summary, setSummary] = useState("");
   const [content, setContent] = useState("");
-  const [cover, setCover] = useState<File | null>(null);
+  // 封面「选完即传」：coverRef = 服务端引用（"" = 已标记清除，保存时同步）；coverDirty = 用户是否动过（决定保存时是否携带）
+  const [coverRef, setCoverRef] = useState<string | null>(null);
   const [coverPreview, setCoverPreview] = useState<string | null>(null);
+  const [coverUploading, setCoverUploading] = useState(false);
+  const [coverDirty, setCoverDirty] = useState(false);
   const [tagIds, setTagIds] = useState<number[]>([]);
   const [featured, setFeatured] = useState(false);
   const [isPublished, setIsPublished] = useState(true);
@@ -150,7 +153,9 @@ export default function NewsFormPage() {
         setTagIds(n.tags.map((t) => t.id));
         setFeatured(n.featured);
         setIsPublished(n.is_published);
+        setCoverRef(n.cover_image_url ?? null);
         setCoverPreview(n.cover_image_url);
+        setCoverDirty(false);
         userDirtyRef.current = false;
         setRteKey((k) => k + 1);
         messagingApi.getThread({ news: n.id })
@@ -293,14 +298,38 @@ export default function NewsFormPage() {
     setContent(html);
   };
 
-  const onPickCover = (f: File | null) => {
-    if (f && f.size > 5 * 1024 * 1024) {
+  /**
+   * 封面：选完即传（与正文插图同机制，避免把文件捆进保存请求）。
+   * 成功只保留服务端引用；失败当场提示，不再拖到点「保存」时才暴露。
+   */
+  const onPickCover = async (f: File | null) => {
+    if (!f) {
+      // 「移除」：记录清除意图，保存时以空串同步（真正删除发生在服务端）
+      setError("");
+      setCoverRef("");
+      setCoverPreview(null);
+      setCoverDirty(true);
+      return;
+    }
+    if (f.size > 5 * 1024 * 1024) {
       setError("封面图不能超过 5MB。");
       return;
     }
     setError("");
-    setCover(f);
-    setCoverPreview(f ? URL.createObjectURL(f) : null);
+    setCoverUploading(true);
+    try {
+      const { url } = await newsApi.uploadCover(f);
+      setCoverRef(url);
+      setCoverPreview(url);
+      setCoverDirty(true);
+    } catch (e: any) {
+      const reason = e?.message === "Failed to fetch"
+        ? "请求没有发出去（网络问题）"
+        : (e?.message || "未知错误");
+      setError(`封面上传失败：${reason}。可重试，或先保存正文、稍后再补封面。`);
+    } finally {
+      setCoverUploading(false);
+    }
   };
 
   const toggleTag = (tid: number) =>
@@ -379,7 +408,7 @@ export default function NewsFormPage() {
       fd.append("is_published", String(isPublished));
       fd.append("comment_thread_status", commentThreadStatus);
       tagIds.forEach((tid) => fd.append("tag_ids", String(tid)));
-      if (cover) fd.append("cover_image", cover);
+      if (coverDirty) fd.append("cover_image_ref", coverRef ?? "");
       const saved = newsIdRef.current
         ? await newsApi.update(newsIdRef.current, fd)
         : await newsApi.create(fd);
@@ -463,17 +492,20 @@ export default function NewsFormPage() {
             <div className="compose-pill">
               <span className="cp-label">封面</span>
               <button type="button" className="compose-cover" onClick={() => fileRef.current?.click()}
-                      title="上传封面图（≤5MB，建议横向）">
-                {coverPreview
-                  ? <img src={coverPreview} alt="封面" />
-                  : <span className="cc-empty"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="16" rx="2" /><circle cx="8.5" cy="9.5" r="1.5" /><path d="M21 16l-5-5L5 20" /></svg>添加封面</span>}
+                      disabled={coverUploading}
+                      title="上传封面图（≤5MB，建议横向；选完立即上传）">
+                {coverUploading
+                  ? <span className="cc-empty">上传中…</span>
+                  : coverPreview
+                    ? <img src={coverPreview} alt="封面" />
+                    : <span className="cc-empty"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="16" rx="2" /><circle cx="8.5" cy="9.5" r="1.5" /><path d="M21 16l-5-5L5 20" /></svg>添加封面</span>}
               </button>
-              {(cover || coverPreview) && (
-                <button type="button" className="btn btn-ghost btn-sm" onClick={() => onPickCover(null)}>移除</button>
+              {!coverUploading && (coverPreview || coverRef) && (
+                <button type="button" className="btn btn-ghost btn-sm" onClick={() => void onPickCover(null)}>移除</button>
               )}
             </div>
             <input ref={fileRef} type="file" accept="image/*" className="rte-file"
-                   onChange={(e) => onPickCover(e.target.files?.[0] ?? null)} />
+                   onChange={(e) => { const f = e.target.files?.[0] ?? null; e.target.value = ""; void onPickCover(f); }} />
           </div>
 
           {/* 大尺寸写作区 + 黏性工具栏（图片/链接/导入Word 集成在工具栏） */}
@@ -544,7 +576,7 @@ export default function NewsFormPage() {
             </div>
             <div className="compose-actions">
               <button className="btn btn-ghost" type="button" onClick={() => navigate(-1)}>取消</button>
-              <button className="btn btn-primary" type="button" onClick={submit} disabled={saving}>
+              <button className="btn btn-primary" type="button" onClick={submit} disabled={saving || coverUploading}>
                 {saving ? "保存中…" : isEdit ? "保存修改" : isPublished ? "发布" : "保存草稿"}
               </button>
             </div>

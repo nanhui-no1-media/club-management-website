@@ -18,6 +18,7 @@
 | DELETE | /news/news/{id}/ | 登录 | `news.manage_news` | 删除 |
 | GET / POST / DELETE | /news/news/{id}/draft/ | 登录 | `news.manage_news` | 服务端草稿区（编辑页自动保存）：读 / 存 / 弃 |
 | POST | /news/news/upload_image/ | 登录 | `news.manage_news` | 正文内嵌图片上传，返回 `{url}` |
+| POST | /news/news/upload_cover/ | 登录 | `news.manage_news` | 封面预上传（选完即传），返回 `{url}` |
 | GET | /news/news/featured/ | 公开 | — | 头条：手工置顶优先，否则阅读人数最高 |
 | GET | /news/news/hot/ | 公开 | — | 热门阅读前 5 |
 | GET | /news/news/tags/ | 公开 | — | 标签云（仅被公开新闻引用），带新闻数 |
@@ -77,7 +78,7 @@
 
 **认证**：登录；**权限**：`news.manage_news`
 
-**请求体**（JSON 或 multipart；有封面时用 multipart）
+**请求体**（JSON 或 multipart；直接上传封面文件时用 multipart）
 
 | 字段 | 类型 | 必填 | 说明 |
 |---|---|---|---|
@@ -85,6 +86,7 @@
 | summary | 字符串 | 否 | 上限 280 |
 | content | 字符串 | 否 | HTML 正文，服务端经 `sanitize_html` 清洗 |
 | cover_image | 文件 | 否 | jpg / png / gif / webp，≤ 5MB；服务端自动生成缩略图（`cover_thumbnail_url`，列表 / 卡片用） |
+| cover_image_ref | 字符串 | 否 | 封面引用：先经 `upload_cover` 预上传，保存时带返回的 URL 挂载（移动端推荐路径）；空串 = 清除封面。与 `cover_image` 二选一 |
 | tag_ids | 整数数组 | 否 | 复用 `tasks.Tag` |
 | featured | 布尔 | 否 | 头条 |
 | is_published | 布尔 | 否 | 默认 `true`；为真且无发布时间时自动补 `published_at` |
@@ -97,7 +99,7 @@
 
 | 状态码 | 场景 |
 |---|---|
-| 400 | `title` 缺失 / 封面超 5MB / 封面类型不支持 |
+| 400 | `title` 缺失 / 封面超 5MB / 封面类型不支持 / 封面引用无效或不存在 |
 | 403 | 无 `news.manage_news` |
 
 ### 作者预览（我的新闻）
@@ -163,7 +165,7 @@
 }
 ```
 
-`review_comment` 仅对待审 / 驳回条目的作者与持 `reviews.moderate` 者非空，其余人得到空串。`related` 为最新 3 条公开稿（排除自身）。`comment_thread` 的 `status` 为 `open` / `muted` / `closed`。写入用字段 `cover_image`、`tag_ids`、`comment_thread_status` 只写不出，不出现在响应中。`draft_saved_at` 为草稿区保存时间——仅对持 `news.manage_news` 者非空（匿名 / 普通用户恒为 `null`）；草稿内容本身只经草稿区端点读写（见「服务端草稿」节）。
+`review_comment` 仅对待审 / 驳回条目的作者与持 `reviews.moderate` 者非空，其余人得到空串。`related` 为最新 3 条公开稿（排除自身）。`comment_thread` 的 `status` 为 `open` / `muted` / `closed`。写入用字段 `cover_image` / `cover_image_ref`、`tag_ids`、`comment_thread_status` 只写不出，不出现在响应中。`draft_saved_at` 为草稿区保存时间——仅对持 `news.manage_news` 者非空（匿名 / 普通用户恒为 `null`）；草稿内容本身只经草稿区端点读写（见「服务端草稿」节）。
 
 `cover_thumbnail_url` 为服务端自动生成的缩略图（宽 ≤ 800、保持原比例、JPEG），列表 / 卡片 / feed 用它省流量；无缩略图（旧图 / 生成失败）时回退为与 `cover_image_url` 同值。`cover_image_url` 始终是原图（详情头图 / 大图查看用）。
 
@@ -178,7 +180,7 @@
 
 **认证**：登录；**权限**：`news.manage_news`（任意持权者，无按作者的对象级限制）
 
-**请求体**：与新建相同（PUT 需含 `title`）；额外接受只写字段 `comment_thread_status`（`open` / `muted` / `closed`，由该评论区主人或协管执行，无权者 `403`）。替换封面时旧文件与旧缩略图被删除、缩略图随新封面重建；`is_published` 由假转真且无 `published_at` 时自动补发布时间。携带 `title` / `summary` / `content` 中任一字段的更新视为「保存修改」上线——同时清空该新闻的草稿区（已发布稿件的待发布修改就此消费；仅动 `featured` 等元数据的更新不清草稿）。
+**请求体**：与新建相同（PUT 需含 `title`）；额外接受只写字段 `comment_thread_status`（`open` / `muted` / `closed`，由该评论区主人或协管执行，无权者 `403`）。替换封面时旧文件与旧缩略图被删除、缩略图随新封面重建（`cover_image_ref` 传空串则清除封面与缩略图）；`is_published` 由假转真且无 `published_at` 时自动补发布时间。携带 `title` / `summary` / `content` 中任一字段的更新视为「保存修改」上线——同时清空该新闻的草稿区（已发布稿件的待发布修改就此消费；仅动 `featured` 等元数据的更新不清草稿）。
 
 **响应 `200 OK`**：详情结构（同上）。
 
@@ -249,6 +251,27 @@
 | 状态码 | 场景 |
 |---|---|
 | 400 | 未选文件（`{"detail": "请选择图片。"}`）/ 超 5MB / 类型不支持 |
+
+### 封面预上传
+`POST /news/news/upload_cover/`
+
+**认证**：登录；**权限**：`news.manage_news`
+
+**请求体**（multipart）：`image`（必填文件，jpg / png / gif / webp，≤ 5MB）。供编辑页「选完即传」使用——文件先独立上传，保存稿件时再以 `cover_image_ref` 引用挂载，避免把文件捆在保存请求里（部分移动端浏览器对「带文件的 PATCH」不稳定）。
+
+**响应 `200 OK`**
+
+```json
+{"url": "https://8.153.145.175/media/news_covers/9f2c1d7a4b6e.webp"}
+```
+
+**错误**
+
+| 状态码 | 场景 |
+|---|---|
+| 400 | 未选文件（`{"detail": "请选择图片。"}`）/ 超 5MB / 类型不支持 |
+
+保存挂载：将返回的 `url` 以 `cover_image_ref` 字段随新建 / 更新请求提交；服务端校验文件必须位于 `news_covers/` 且未被其他新闻引用。
 
 ### 头条
 `GET /news/news/featured/`

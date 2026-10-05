@@ -50,6 +50,12 @@ export const newsApi = {
     fd.append("image", file);
     return request("/news/upload_image/", { method: "POST", body: fd }) as Promise<{ url: string }>;
   },
+  // 封面预上传（信息组）：「选完即传」——返回 {url}，保存时以 cover_image_ref 引用挂载
+  uploadCover: (file: File) => {
+    const fd = new FormData();
+    fd.append("image", file);
+    return request("/news/upload_cover/", { method: "POST", body: fd }) as Promise<{ url: string }>;
+  },
   featured: () => request("/news/featured/") as Promise<NewsListItem | null>,
   hot: () => request("/news/hot/") as Promise<NewsListItem[]>,
   tags: () => request("/news/tags/") as Promise<NewsTag[]>,

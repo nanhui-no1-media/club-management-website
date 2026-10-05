@@ -55,6 +55,27 @@ jobs:
           if-no-files-found: error
           retention-days: 1
 
+  frontend-test:
+    name: frontend-test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: Run unit tests
+        working-directory: frontend
+        run: npm test
+
   e2e:
     name: e2e
     needs: [frontend]
@@ -106,7 +127,7 @@ jobs:
 
   release:
     name: release
-    needs: [backend, frontend, e2e]
+    needs: [backend, frontend, frontend-test, e2e]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     permissions:

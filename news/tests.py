@@ -3,6 +3,7 @@ from datetime import timedelta
 from io import BytesIO
 
 from django.contrib.auth.models import AnonymousUser, Group, User
+from django.core.files.storage import default_storage
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase, RequestFactory
 from django.utils import timezone
@@ -456,3 +457,132 @@ class NewsCoverThumbnailTest(TestCase):
         self.assertFalse(storage.exists(old_thumb_name))
         with Image.open(news.cover_thumbnail.path) as img:
             self.assertEqual((img.width, img.height), (600, 600))
+
+
+class NewsCoverPreuploadTest(TestCase):
+    """封面「选完即传」：upload_cover 预上传 + cover_image_ref 挂载 / 替换 / 清除 / 引用校验。"""
+
+    def setUp(self):
+        self.author = _info(User.objects.create_user(username="reporter_pre", password="x"))
+        self.client = APIClient()
+        self.client.force_authenticate(self.author)
+
+    @staticmethod
+    def _image_file(width=1600, height=900, fmt="JPEG", name=None):
+        buf = BytesIO()
+        Image.new("RGB", (width, height), (30, 120, 60)).save(buf, format=fmt)
+        ext = "jpg" if fmt == "JPEG" else fmt.lower()
+        ct = "image/jpeg" if fmt == "JPEG" else f"image/{ext}"
+        return SimpleUploadedFile(name or f"cover.{ext}", buf.getvalue(), content_type=ct)
+
+    @staticmethod
+    def _ref_path(url):
+        return url.split("/media/", 1)[1]
+
+    def _upload(self, f=None):
+        return self.client.post(
+            "/news/news/upload_cover/", {"image": f or self._image_file()}, format="multipart",
+        )
+
+    def test_upload_cover_saves_file_and_returns_url(self):
+        """预上传：文件落 news_covers/，返回可直接引用的 URL。"""
+        resp = self._upload()
+        self.assertEqual(resp.status_code, 200)
+        self.assertIn("/media/news_covers/", resp.data["url"])
+        self.assertTrue(default_storage.exists(self._ref_path(resp.data["url"])))
+
+    def test_upload_cover_accepts_webp(self):
+        """WebP（手机常见格式）可预上传。"""
+        resp = self._upload(self._image_file(fmt="WEBP"))
+        self.assertEqual(resp.status_code, 200)
+
+    def test_upload_cover_rejects_big_and_bad_type(self):
+        big = SimpleUploadedFile("big.jpg", os.urandom(5 * 1024 * 1024 + 1), content_type="image/jpeg")
+        self.assertEqual(self._upload(big).status_code, 400)
+        bad = SimpleUploadedFile("note.txt", b"hello", content_type="text/plain")
+        self.assertEqual(self._upload(bad).status_code, 400)
+
+    def test_upload_cover_requires_permission(self):
+        """无 news.manage_news → 403（与正文图上传同门）。"""
+        self.client.force_authenticate(User.objects.create_user(username="nobody_pre", password="x"))
+        self.assertEqual(self._upload().status_code, 403)
+
+    def test_create_with_ref_attaches_and_generates_thumbnail(self):
+        """新建携带引用：封面挂载 + 缩略图生成（800x450）。"""
+        url = self._upload().data["url"]
+        resp = self.client.post(
+            "/news/news/",
+            {"title": "预上传封面", "is_published": True, "cover_image_ref": url},
+            format="multipart",
+        )
+        self.assertEqual(resp.status_code, 201)
+        news = News.objects.get(title="预上传封面")
+        self.assertEqual(news.cover_image.name, self._ref_path(url))
+        self.assertTrue(news.cover_thumbnail)
+        with Image.open(news.cover_thumbnail.path) as img:
+            self.assertEqual((img.width, img.height), (800, 450))
+
+    def test_update_ref_replaces_and_cleans_old(self):
+        """换引用：旧封面 / 旧缩略图文件删除、缩略图按新图重建。"""
+        url1 = self._upload().data["url"]
+        resp = self.client.post("/news/news/", {"title": "换封面", "cover_image_ref": url1}, format="multipart")
+        news = News.objects.get(pk=resp.data["id"])
+        old_cover, old_thumb = news.cover_image.name, news.cover_thumbnail.name
+        storage = news.cover_image.storage
+        url2 = self._upload(self._image_file(600, 600, name="second.jpg")).data["url"]
+        resp2 = self.client.patch(f"/news/news/{news.pk}/", {"cover_image_ref": url2}, format="multipart")
+        self.assertEqual(resp2.status_code, 200)
+        news.refresh_from_db()
+        self.assertEqual(news.cover_image.name, self._ref_path(url2))
+        self.assertFalse(storage.exists(old_cover))
+        self.assertFalse(storage.exists(old_thumb))
+        with Image.open(news.cover_thumbnail.path) as img:
+            self.assertEqual((img.width, img.height), (600, 600))
+
+    def test_clear_ref_removes_cover_and_thumbnail(self):
+        """空串引用 = 清除封面：文件与缩略图一并删除。"""
+        url = self._upload().data["url"]
+        resp = self.client.post("/news/news/", {"title": "清除封面", "cover_image_ref": url}, format="multipart")
+        news = News.objects.get(pk=resp.data["id"])
+        cover_name, thumb_name = news.cover_image.name, news.cover_thumbnail.name
+        storage = news.cover_image.storage
+        resp2 = self.client.patch(f"/news/news/{news.pk}/", {"cover_image_ref": ""}, format="multipart")
+        self.assertEqual(resp2.status_code, 200)
+        news.refresh_from_db()
+        self.assertFalse(news.cover_image)
+        self.assertFalse(news.cover_thumbnail)
+        self.assertFalse(storage.exists(cover_name))
+        self.assertFalse(storage.exists(thumb_name))
+
+    def test_ref_validation_rejects_invalid(self):
+        """引用校验：非法路径 / 穿越 / 缩略图 / 不存在 → 400。"""
+        bad_refs = [
+            "news_covers/../secret.jpg",
+            "news_covers/thumbs/x.jpg",
+            "other_place/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.jpg",
+            "news_covers/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.jpg",
+            "/media/news_covers/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.jpg",
+        ]
+        for i, ref in enumerate(bad_refs):
+            resp = self.client.post(
+                "/news/news/", {"title": f"bad-{i}", "cover_image_ref": ref}, format="multipart",
+            )
+            self.assertEqual(resp.status_code, 400, msg=ref)
+
+    def test_ref_rejects_other_news_cover(self):
+        """同一文件不允许挂到第二条新闻（防替换时误删他人封面）。"""
+        url = self._upload().data["url"]
+        resp1 = self.client.post("/news/news/", {"title": "先占", "cover_image_ref": url}, format="multipart")
+        self.assertEqual(resp1.status_code, 201)
+        resp2 = self.client.post("/news/news/", {"title": "蹭图", "cover_image_ref": url}, format="multipart")
+        self.assertEqual(resp2.status_code, 400)
+
+    def test_create_with_both_cover_fields_rejected(self):
+        """cover_image 与 cover_image_ref 不可同时携带。"""
+        url = self._upload().data["url"]
+        resp = self.client.post(
+            "/news/news/",
+            {"title": "双传", "cover_image": self._image_file(name="f.jpg"), "cover_image_ref": url},
+            format="multipart",
+        )
+        self.assertEqual(resp.status_code, 400)

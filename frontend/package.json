@@ -6,7 +6,9 @@
   "scripts": {
     "dev": "node scripts/copy-surveyjs.js && webpack serve",
     "build": "webpack --mode production && node scripts/copy-surveyjs.js && node scripts/assert-live2d-dist.js && node scripts/assert-surveyjs-dist.js",
-    "copy-surveyjs": "node scripts/copy-surveyjs.js"
+    "copy-surveyjs": "node scripts/copy-surveyjs.js",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "keywords": [],
   "author": "",
@@ -56,15 +58,22 @@
   },
   "devDependencies": {
     "@playwright/test": "^1.63.0",
+    "@testing-library/dom": "^10.4.2",
+    "@testing-library/jest-dom": "^7.0.1",
+    "@testing-library/react": "^16.3.3",
     "@types/node": "^25.9.9",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^6.1.1",
     "copy-webpack-plugin": "^14.0.0",
     "css-loader": "^7.1.4",
     "html-webpack-plugin": "^5.6.7",
+    "jsdom": "^30.1.2",
     "style-loader": "^4.0.0",
     "ts-loader": "^9.5.7",
     "typescript": "^6.0.3",
+    "vite": "^8.3.2",
+    "vitest": "^5.0.3",
     "webpack": "^5.106.2",
     "webpack-cli": "^7.0.2",
     "webpack-dev-server": "^5.2.4"

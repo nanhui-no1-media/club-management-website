@@ -117,24 +117,33 @@ npx playwright test                              # 自动：独立库 run/e2e.sq
 
 测试数据由 `uv run python manage.py seed_e2e` 生成（幂等；账号 `e2e_info`（管理权限）、`e2e_plain`（普通），密码 `e2e-pass-123`）。失败产物在 `frontend/playwright-report/`（`npx playwright show-report` 查看，含 trace 回放）。
 
-CI 配置见 `.github/workflows/ci.yml`，触发条件为 push 到 `main` 或任意 PR；三个必跑 job 加一个发布 job：
+前端单元 / 组件测试（Vitest + React Testing Library + jsdom，测试文件在 `src/**/__tests__/*.test.ts(x)`）：
+
+```bash
+cd frontend
+npm test            # 一次性运行（vitest run）
+npm run test:watch  # 监视模式
+```
+CI 配置见 `.github/workflows/ci.yml`，触发条件为 push 到 `main` 或任意 PR；四个必跑 job 加一个发布 job：
 
 | Job | 触发 | 步骤 |
 |---|---|---|
 | `backend` | push 到 `main` / 任意 PR | `astral-sh/setup-uv`（python 3.14）→ `uv sync --frozen` → `uv run python manage.py test` |
 | `frontend` | 同上 | Node 22 → `npm ci && npm run build`（工作目录 `frontend`）→ 断言 `frontend/dist/surveyjs/survey.core.min.js` 存在 → 上传 `frontend-dist` artifact（保留 1 天） |
+| `frontend-test` | 同上 | Node 22 → `npm ci` → `npm test`（Vitest 单元 / 组件测试，工作目录 `frontend`） |
 | `e2e` | 同上 | 复用 `frontend-dist` artifact + `uv sync` → `npx playwright install --with-deps chromium` → `npx playwright test`（自动起独立库与服务）；失败上传 `playwright-report` |
-| `release` | 仅 push 到 `main` 且前三个 job 通过 | `bash scripts/pack-release.sh` 打包 → 创建 GitHub Release（标签 `club-<sha>`，资产为 tarball + `.sha256` + `install.sh`，附上一个 Release 以来的 changelog） |
+| `release` | 仅 push 到 `main` 且前四个 job 通过 | `bash scripts/pack-release.sh` 打包 → 创建 GitHub Release（标签 `club-<sha>`，资产为 tarball + `.sha256` + `install.sh`，附上一个 Release 以来的 changelog） |
 
 本地跑 CI 的等价命令：
 
 ```bash
 uv sync --frozen && uv run python manage.py test          # backend job
 cd frontend && npm ci && npm run build                    # frontend job
+cd frontend && npm test                                   # frontend-test job
 cd frontend && npx playwright test                        # e2e job（需已装浏览器与前端产物，见上）
 ```
 
-前端单元测试框架暂未接入（规划中）；浏览器 E2E 用 Playwright（`frontend/e2e/`，chromium，CI job `e2e`）；其余自动质量关口是构建断言脚本（`assert-live2d-dist.js` / `assert-surveyjs-dist.js`）与 TypeScript 编译，页面质量仍依赖人工验收。
+前端单元测试用 Vitest（`src/**/__tests__/*.test.ts(x)`，`cd frontend && npm test`）；浏览器 E2E 用 Playwright（`frontend/e2e/`，chromium，CI job `e2e`）；自动质量关口另有构建断言脚本（`assert-live2d-dist.js` / `assert-surveyjs-dist.js`）与 TypeScript 编译，页面质量仍依赖人工验收。
 
 ## 常用命令速查
 
@@ -154,6 +163,7 @@ cd frontend && npx playwright test                        # e2e job（需已装�
 | `cd frontend && npm ci` | 按 lockfile 安装前端依赖 |
 | `cd frontend && npm run dev` | 前端开发服务器（:3000，HMR） |
 | `cd frontend && npm run build` | 生产构建 → `frontend/dist/` |
+| `cd frontend && npm test` | 前端单元测试（Vitest，一次性运行） |
 | `cd frontend && npx playwright test` | 浏览器 E2E（自动起独立库与服务；详见「运行测试」） |
 | `uv run python manage.py seed_e2e` | 生成 E2E 种子数据（幂等；仅测试环境） |
 | `cd frontend && npm run copy-surveyjs` | 单独重跑 SurveyJS 静态文件拷贝（升级 survey-* / Chart.js 后需要） |

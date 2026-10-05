@@ -106,22 +106,35 @@ uv run python manage.py check                           # 项目配置自检
 
 测试期有两项专门的提速设置（仅 `TESTING=True` 生效，零生产影响）：密码哈希切 MD5、邮件走内存后端。详见 [配置参考 §2.8](configuration.md)。
 
-CI 配置见 `.github/workflows/ci.yml`，触发条件为 push 到 `main` 或任意 PR；两个必跑 job 加一个发布 job：
+浏览器 E2E（Playwright，chromium）覆盖「真实浏览器里的整栈冒烟」：登录 / 新闻发布（含封面上传）/ 编辑器插图 / 移动版跳转。
+
+```bash
+cd frontend
+npm run build                                    # 首次需要：Django 直接托管 frontend/dist
+npx playwright install chromium --with-deps      # 首次需要：安装浏览器（国内网络可加 PLAYWRIGHT_DOWNLOAD_HOST=https://cdn.npmmirror.com/binaries/playwright 走镜像）
+npx playwright test                              # 自动：独立库 run/e2e.sqlite3 → migrate → seed_e2e → 起服务（:8010）→ 跑用例
+```
+
+测试数据由 `uv run python manage.py seed_e2e` 生成（幂等；账号 `e2e_info`（管理权限）、`e2e_plain`（普通），密码 `e2e-pass-123`）。失败产物在 `frontend/playwright-report/`（`npx playwright show-report` 查看，含 trace 回放）。
+
+CI 配置见 `.github/workflows/ci.yml`，触发条件为 push 到 `main` 或任意 PR；三个必跑 job 加一个发布 job：
 
 | Job | 触发 | 步骤 |
 |---|---|---|
 | `backend` | push 到 `main` / 任意 PR | `astral-sh/setup-uv`（python 3.14）→ `uv sync --frozen` → `uv run python manage.py test` |
 | `frontend` | 同上 | Node 22 → `npm ci && npm run build`（工作目录 `frontend`）→ 断言 `frontend/dist/surveyjs/survey.core.min.js` 存在 → 上传 `frontend-dist` artifact（保留 1 天） |
-| `release` | 仅 push 到 `main` 且前两个 job 通过 | `bash scripts/pack-release.sh` 打包 → 创建 GitHub Release（标签 `club-<sha>`，资产为 tarball + `.sha256` + `install.sh`，附上一个 Release 以来的 changelog） |
+| `e2e` | 同上 | 复用 `frontend-dist` artifact + `uv sync` → `npx playwright install --with-deps chromium` → `npx playwright test`（自动起独立库与服务）；失败上传 `playwright-report` |
+| `release` | 仅 push 到 `main` 且前三个 job 通过 | `bash scripts/pack-release.sh` 打包 → 创建 GitHub Release（标签 `club-<sha>`，资产为 tarball + `.sha256` + `install.sh`，附上一个 Release 以来的 changelog） |
 
 本地跑 CI 的等价命令：
 
 ```bash
 uv sync --frozen && uv run python manage.py test          # backend job
 cd frontend && npm ci && npm run build                    # frontend job
+cd frontend && npx playwright test                        # e2e job（需已装浏览器与前端产物，见上）
 ```
 
-前端目前没有单元测试框架；自动质量关口是构建断言脚本（`assert-live2d-dist.js` / `assert-surveyjs-dist.js`）与 TypeScript 编译，页面质量依赖人工验收。
+前端单元测试框架暂未接入（规划中）；浏览器 E2E 用 Playwright（`frontend/e2e/`，chromium，CI job `e2e`）；其余自动质量关口是构建断言脚本（`assert-live2d-dist.js` / `assert-surveyjs-dist.js`）与 TypeScript 编译，页面质量仍依赖人工验收。
 
 ## 常用命令速查
 
@@ -141,6 +154,8 @@ cd frontend && npm ci && npm run build                    # frontend job
 | `cd frontend && npm ci` | 按 lockfile 安装前端依赖 |
 | `cd frontend && npm run dev` | 前端开发服务器（:3000，HMR） |
 | `cd frontend && npm run build` | 生产构建 → `frontend/dist/` |
+| `cd frontend && npx playwright test` | 浏览器 E2E（自动起独立库与服务；详见「运行测试」） |
+| `uv run python manage.py seed_e2e` | 生成 E2E 种子数据（幂等；仅测试环境） |
 | `cd frontend && npm run copy-surveyjs` | 单独重跑 SurveyJS 静态文件拷贝（升级 survey-* / Chart.js 后需要） |
 | `./start.sh` | 前台启动生产 ASGI（Gunicorn + `UvicornWorker`，1 worker）+ 更新守护进程 |
 
@@ -161,7 +176,7 @@ club-management-website/
 ├── reviews/           # 发布审核 / 意见反馈 / 举报案
 ├── tasks/             # 任务与标签
 ├── tutorials/         # 教程
-├── frontend/          # React SPA：src/ 源码、scripts/ 构建钩子、dist/ 产物（gitignore）
+├── frontend/          # React SPA：src/ 源码、scripts/ 构建钩子、e2e/ 浏览器 E2E、dist/ 产物（gitignore）
 ├── scripts/           # 运维脚本：install.sh / pack-release.sh / updater.py
 ├── static/            # 静态资源（surveyjs/ 未哈希 min 文件、maintenance.html 等）
 ├── docs/              # 项目文档

@@ -22,6 +22,7 @@ uv add <package>                           # Add a Python dependency
 cd frontend
 npm run dev                                # Start dev server (localhost:3000, HMR); copies SurveyJS for Django admin
 npm run build                              # Production build → frontend/dist/ (+ SurveyJS admin assets)
+npx playwright test                        # Browser E2E: auto-starts Django (:8010) with a fresh DB + seed data
 ```
 
 ## Architecture

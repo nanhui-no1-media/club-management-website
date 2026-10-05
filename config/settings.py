@@ -174,7 +174,8 @@ CHANNEL_LAYERS = {
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+        # DJANGO_DB_FILE：E2E 用独立库（scripts/e2e-server.sh 设 run/e2e.sqlite3）；默认 db.sqlite3
+        'NAME': os.environ.get("DJANGO_DB_FILE") or BASE_DIR / 'db.sqlite3',
     }
 }
 

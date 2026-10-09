@@ -484,6 +484,7 @@ export default function ExamBoardPage() {
   const [clockRttMs, setClockRttMs] = useState<number | null>(null);
   const [dataSyncedAt, setDataSyncedAt] = useState<number | null>(null);
   const [socketState, setSocketState] = useState<ExamBoardSocketState>("idle");
+  const [deletingBatch, setDeletingBatch] = useState(false);
   const timeOffsetRef = useRef(0);
   const fieldKeyRef = useRef(fieldKey(fieldsFromStatus({ kind: "idle" })));
   const fadeTimerRef = useRef<number | null>(null);
@@ -771,6 +772,49 @@ export default function ExamBoardPage() {
     setDraftTitle(d.title);
     setDraftBatches(d.batches);
     setTab("edit");
+  };
+
+  const handleDeleteBatch = async () => {
+    if (!exam || !batchId) return;
+    
+    if (exam.batches.length <= 1) {
+      setSaveError("不能删除最后一个批次");
+      return;
+    }
+
+    if (!confirm(`确定要删除「${batch?.name}」这个批次吗？`)) {
+      return;
+    }
+
+    setDeletingBatch(true);
+    setSaveError("");
+    try {
+      const d = examToDraft(exam);
+      const filteredBatches = d.batches.filter((b) => b.key !== `b-${batchId}`);
+      
+      if (filteredBatches.length === 0) {
+        setSaveError("不能删除最后一个批次");
+        setDeletingBatch(false);
+        return;
+      }
+
+      const payload = draftToPayload(d.title, filteredBatches);
+      const saved = await examApi.update(exam.id, payload);
+      await refresh();
+      
+      const remainingBatchId = saved.batches[0]?.id ?? null;
+      applyExam(saved, remainingBatchId);
+      setSaveError("批次删除成功");
+      setTimeout(() => setSaveError(""), 3000);
+    } catch (e: any) {
+      if (e?.apiError?.kind === "auth") {
+        openLogin();
+      } else {
+        setSaveError(e?.message || "删除失败");
+      }
+    } finally {
+      setDeletingBatch(false);
+    }
   };
 
   const handleSaveExam = async () => {
@@ -1289,7 +1333,7 @@ export default function ExamBoardPage() {
                 关闭
               </button>
             </div>
-            <p className="errata-zoom-dismiss-hint">也可点周围暗处关闭</p>
+            <p className="errata-zoom-dismiss-hint">也可点周围暗处取消</p>
           </div>
         </div>
       )}
@@ -1359,6 +1403,18 @@ export default function ExamBoardPage() {
             <span id="end-time">{fields.end}</span>
           </div>
         </div>
+        {canManage && exam && batch && (
+          <div className="batch-actions">
+            <button
+              type="button"
+              className="btn-delete"
+              disabled={deletingBatch || exam.batches.length <= 1}
+              onClick={handleDeleteBatch}
+            >
+              {deletingBatch ? "删除中…" : "删除当前批次"}
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );

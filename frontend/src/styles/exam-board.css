@@ -1,11 +1,116 @@
+/* CSS 变量定义 - 支持深色模式 */
+:root {
+    --exam-bg: #eef0f2;
+    --exam-text: #111111;
+    --exam-heading-text: #4b5563;
+    --exam-batch-bg: #e5e7eb;
+    --exam-tool-bg: rgba(255, 255, 255, 0.94);
+    --exam-tool-border: #d1d5db;
+    --exam-guide-bg: #fff;
+    --exam-guide-border: #e5e7eb;
+    --exam-panel-bg: #fff;
+    --exam-panel-text: #333;
+    --exam-tab-bg: #f7f7f7;
+    --exam-tab-border: #ddd;
+    --exam-tab-active-bg: #111;
+    --exam-tab-active-text: #fff;
+    --exam-border: #eee;
+    --exam-preview-text: #444;
+    --exam-hint-text: #6b7280;
+    --exam-success-bg: #4CAF50;
+    --exam-success-text: white;
+    --exam-primary-bg: #2196F3;
+    --exam-primary-text: white;
+    --exam-danger-bg: #f44336;
+    --exam-danger-text: white;
+    --exam-error-text: #b91c1c;
+    --exam-check-border: #ddd;
+    --exam-invalid-bg: #fef2f2;
+    --exam-urgent-color: #dc2626;
+    --exam-warn-bg: #fef3c7;
+    --exam-warn-text: #92400e;
+    --exam-errata-kicker: #b91c1c;
+    --exam-errata-compact-border: #fecaca;
+    --exam-errata-compact-bg: rgba(255, 255, 255, 0.94);
+    --exam-rail-bg: rgba(255, 255, 255, 0.82);
+    --exam-schedule-batch: #6b7280;
+    --exam-schedule-head: #374151;
+    --schedule-done-color: #9ca3af;
+    --schedule-active-bg: #fef3c7;
+    --schedule-active-text: #92400e;
+    --schedule-phase-done: #9ca3af;
+    --schedule-phase-active: #b45309;
+    --schedule-phase-upcoming: #2563eb;
+    --health-bg: #f9fafb;
+    --health-border: #e5e7eb;
+    --health-text: #4b5563;
+    --health-ok-color: #166534;
+    --health-wait-color: #92400e;
+    --health-bad-color: #991b1b;
+    --zoom-action-bg: #fff;
+    --zoom-action-text: #111827;
+    --zoom-hint: rgba(255, 255, 255, 0.92);
+    --zoom-dismiss-hint: rgba(255, 255, 255, 0.78);
+    --modal-overlay: rgba(0, 0, 0, 0.18);
+}
+
+@media (prefers-color-scheme: dark) {
+    :root {
+        --exam-bg: #1a1a1a;
+        --exam-text: #f5f5f5;
+        --exam-heading-text: #9ca3af;
+        --exam-batch-bg: #374151;
+        --exam-tool-bg: rgba(55, 65, 81, 0.94);
+        --exam-tool-border: #4b5563;
+        --exam-guide-bg: #1f2937;
+        --exam-guide-border: #374151;
+        --exam-panel-bg: #1f2937;
+        --exam-panel-text: #e5e7eb;
+        --exam-tab-bg: #374151;
+        --exam-tab-border: #4b5563;
+        --exam-tab-active-bg: #f3f4f6;
+        --exam-tab-active-text: #111827;
+        --exam-border: #374151;
+        --exam-preview-text: #d1d5db;
+        --exam-hint-text: #9ca3af;
+        --exam-invalid-bg: #450a0a;
+        --exam-urgent-color: #f87171;
+        --exam-warn-bg: #78350f;
+        --exam-warn-text: #fcd34d;
+        --exam-errata-kicker: #fca5a5;
+        --exam-errata-compact-border: #7f1d1d;
+        --exam-errata-compact-bg: rgba(31, 41, 55, 0.94);
+        --exam-rail-bg: rgba(31, 41, 55, 0.82);
+        --exam-schedule-batch: #9ca3af;
+        --exam-schedule-head: #e5e7eb;
+        --schedule-done-color: #6b7280;
+        --schedule-active-bg: #78350f;
+        --schedule-active-text: #fbbf24;
+        --schedule-phase-done: #6b7280;
+        --schedule-phase-active: #fb923c;
+        --schedule-phase-upcoming: #60a5fa;
+        --health-bg: #1f2937;
+        --health-border: #374151;
+        --health-text: #d1d5db;
+        --health-ok-color: #4ade80;
+        --health-wait-color: #fbbf24;
+        --health-bad-color: #f87171;
+        --zoom-action-bg: #f3f4f6;
+        --zoom-action-text: #111827;
+        --zoom-hint: rgba(255, 255, 255, 0.95);
+        --zoom-dismiss-hint: rgba(255, 255, 255, 0.85);
+        --modal-overlay: rgba(0, 0, 0, 0.5);
+    }
+}
+
 .exam-board-wrapper {
     box-sizing: border-box;
     position: fixed;
     inset: 0;
     z-index: 40;
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang SC", "Microsoft YaHei", sans-serif;
-    background-color: #eef0f2;
-    color: #111111;
+    background-color: var(--exam-bg);
+    color: var(--exam-text);
     display: flex;
     justify-content: center;
     align-items: center;
@@ -32,13 +137,13 @@
     align-items: baseline;
     gap: 16px;
     font-size: 1.6rem;
-    color: #4b5563;
+    color: var(--exam-heading-text);
 }
 
 .exam-board-wrapper .exam-heading #exam-batch {
     padding: 2px 10px;
     border-radius: 999px;
-    background: #e5e7eb;
+    background: var(--exam-batch-bg);
     font-size: 1.1rem;
 }
 
@@ -58,7 +163,7 @@
 }
 
 .exam-board-wrapper #current-time.clock-urgent {
-    color: #dc2626;
+    color: var(--exam-urgent-color);
     animation: exam-clock-pulse 1.2s ease-in-out infinite;
 }
 
@@ -102,9 +207,16 @@
     color: #991b1b;
 }
 
+@media (prefers-color-scheme: dark) {
+    .exam-board-wrapper .time-cue-ending {
+        background: #7f1d1d;
+        color: #fecaca;
+    }
+}
+
 .exam-board-wrapper .time-cue-approaching {
-    background: #fef3c7;
-    color: #92400e;
+    background: var(--exam-warn-bg);
+    color: var(--exam-warn-text);
 }
 
 @keyframes exam-cue-in {
@@ -134,13 +246,7 @@
 .exam-board-wrapper .empty-col {
     justify-content: flex-end;
     font-size: 1.6rem;
-    color: #6b7280;
-}
-
-.exam-board-wrapper .batch-actions {
-    margin-top: 10px;
-    padding-top: 20px;
-    border-top: 1px solid rgba(0, 0, 0, 0.08);
+    color: var(--exam-hint-text);
 }
 
 .exam-board-wrapper .board-tools {
@@ -161,23 +267,23 @@
     font-size: 0.95rem;
     font-weight: 600;
     letter-spacing: 0.04em;
-    border: 1px solid #d1d5db;
+    border: 1px solid var(--exam-tool-border);
     border-radius: 8px;
-    background: rgba(255, 255, 255, 0.94);
-    color: #111827;
+    background: var(--exam-tool-bg);
+    color: var(--exam-text);
     cursor: pointer;
     box-shadow: 0 4px 14px rgba(15, 23, 42, 0.08);
 }
 
 .exam-board-wrapper .board-tool:hover {
-    background: #fff;
-    border-color: #9ca3af;
+    background: var(--exam-panel-bg);
+    border-color: var(--exam-tool-border);
 }
 
 .exam-board-wrapper .board-tool.is-on {
-    background: #111827;
-    border-color: #111827;
-    color: #fff;
+    background: var(--exam-tab-active-bg);
+    border-color: var(--exam-tab-active-bg);
+    color: var(--exam-tab-active-text);
 }
 
 .exam-board-wrapper .board-guide {
@@ -187,11 +293,11 @@
     z-index: 1240;
     width: min(320px, calc(100vw - 32px));
     padding: 12px 14px 14px;
-    background: #fff;
-    border: 1px solid #e5e7eb;
+    background: var(--exam-guide-bg);
+    border: 1px solid var(--exam-guide-border);
     border-radius: 10px;
     box-shadow: 0 10px 28px rgba(15, 23, 42, 0.12);
-    color: #1f2937;
+    color: var(--exam-panel-text);
 }
 
 .exam-board-wrapper .board-guide p {
@@ -207,8 +313,8 @@
     font-weight: 600;
     border: none;
     border-radius: 6px;
-    background: #111827;
-    color: #fff;
+    background: var(--exam-tab-active-bg);
+    color: var(--exam-tab-active-text);
     cursor: pointer;
 }
 
@@ -220,12 +326,12 @@
     max-width: none;
     height: auto;
     transform: none;
-    background-color: rgba(0, 0, 0, 0.18);
+    background-color: var(--modal-overlay);
     z-index: 1300;
 }
 
 .exam-board-wrapper .exam-settings-panel {
-    background-color: #fff;
+    background-color: var(--exam-panel-bg);
     padding: 20px 22px 28px;
     border-radius: 0;
     width: min(520px, 94vw);
@@ -240,7 +346,7 @@
     bottom: 0;
     left: auto;
     transform: none;
-    color: #333;
+    color: var(--exam-panel-text);
     animation: exam-drawer-in 0.22s ease;
 }
 
@@ -264,17 +370,18 @@
 }
 
 .exam-board-wrapper .settings-tabs button {
-    border: 1px solid #ddd;
-    background: #f7f7f7;
+    border: 1px solid var(--exam-tab-border);
+    background: var(--exam-tab-bg);
     padding: 6px 12px;
     border-radius: 4px;
     cursor: pointer;
+    color: var(--exam-panel-text);
 }
 
 .exam-board-wrapper .settings-tabs button.active {
-    background: #111;
-    color: #fff;
-    border-color: #111;
+    background: var(--exam-tab-active-bg);
+    color: var(--exam-tab-active-text);
+    border-color: var(--exam-tab-active-bg);
 }
 
 .exam-board-wrapper .settings-body {
@@ -295,13 +402,16 @@
 .exam-board-wrapper .settings-body textarea {
     padding: 6px 8px;
     font-size: 14px;
+    background: var(--exam-panel-bg);
+    color: var(--exam-panel-text);
+    border: 1px solid var(--exam-tab-border);
 }
 
 .exam-board-wrapper .subject-preview {
     margin: 0;
     padding-left: 18px;
     font-size: 14px;
-    color: #444;
+    color: var(--exam-preview-text);
 }
 
 .exam-board-wrapper .edit-toolbar,
@@ -312,7 +422,7 @@
 }
 
 .exam-board-wrapper .batch-editor {
-    border: 1px solid #eee;
+    border: 1px solid var(--exam-border);
     border-radius: 6px;
     padding: 10px;
 }
@@ -326,7 +436,7 @@
 
 .exam-board-wrapper .schedule-table th,
 .exam-board-wrapper .schedule-table td {
-    border: 1px solid #ddd;
+    border: 1px solid var(--exam-border);
     padding: 4px;
     text-align: center;
 }
@@ -345,9 +455,9 @@
     cursor: pointer;
 }
 
-.exam-board-wrapper .btn-add { background-color: #4CAF50; color: white; }
-.exam-board-wrapper .btn-save { background-color: #2196F3; color: white; }
-.exam-board-wrapper .btn-delete { background-color: #f44336; color: white; }
+.exam-board-wrapper .btn-add { background-color: var(--exam-success-bg); color: var(--exam-success-text); }
+.exam-board-wrapper .btn-save { background-color: var(--exam-primary-bg); color: var(--exam-primary-text); }
+.exam-board-wrapper .btn-delete { background-color: var(--exam-danger-bg); color: var(--exam-danger-text); }
 .exam-board-wrapper .btn-save:disabled,
 .exam-board-wrapper .btn-delete:disabled { opacity: 0.6; }
 
@@ -358,8 +468,8 @@
     margin-top: 8px;
 }
 
-.exam-board-wrapper .settings-error { color: #b91c1c; margin: 0; }
-.exam-board-wrapper .settings-hint { color: #6b7280; font-size: 13px; margin: 0; }
+.exam-board-wrapper .settings-error { color: var(--exam-error-text); margin: 0; }
+.exam-board-wrapper .settings-hint { color: var(--exam-hint-text); font-size: 13px; margin: 0; }
 
 .exam-board-wrapper .settings-body label.settings-check {
     flex-direction: row;
@@ -373,7 +483,7 @@
 }
 
 .exam-board-wrapper .schedule-table tr.row-invalid td {
-    background: #fef2f2;
+    background: var(--exam-invalid-bg);
 }
 
 .exam-board-wrapper .errata-overlay {
@@ -407,6 +517,13 @@
     font: inherit;
 }
 
+@media (prefers-color-scheme: dark) {
+    .exam-board-wrapper .errata-card {
+        background-color: #1f2937;
+        color: #e5e7eb;
+    }
+}
+
 .exam-board-wrapper .errata-zoom .errata-card {
     max-width: min(1200px, 96vw);
     max-height: 82vh;
@@ -436,21 +553,21 @@
     font-weight: 600;
     border: none;
     border-radius: 8px;
-    background: #fff;
-    color: #111827;
+    background: var(--zoom-action-bg);
+    color: var(--zoom-action-text);
     cursor: pointer;
 }
 
 .exam-board-wrapper .errata-zoom-dismiss-hint {
     margin: 0;
-    color: rgba(255, 255, 255, 0.78);
+    color: var(--zoom-dismiss-hint);
     font-size: 0.85rem;
 }
 
 .exam-board-wrapper .errata-kicker {
     font-size: 1.1rem;
     letter-spacing: 0.2em;
-    color: #b91c1c;
+    color: var(--exam-errata-kicker);
     margin-bottom: 12px;
 }
 
@@ -475,7 +592,7 @@
 
 .exam-board-wrapper .errata-zoom-meta {
     margin: 0;
-    color: rgba(255, 255, 255, 0.92);
+    color: var(--zoom-hint);
     font-size: 1.05rem;
     letter-spacing: 0.08em;
     text-align: center;
@@ -495,13 +612,13 @@
     display: block;
     margin-top: 10px;
     font-size: 0.85rem;
-    color: #9ca3af;
+    color: var(--exam-hint-text);
 }
 
 .exam-board-wrapper .errata-card.compact .errata-zoom-hint {
     margin-top: 2px;
     align-self: flex-end;
-    background: #991b1b;
+    background: var(--exam-errata-kicker);
     color: #fff;
     font-size: 0.78rem;
     font-weight: 700;
@@ -526,7 +643,7 @@
 .exam-board-wrapper .errata-rail-head {
     font-size: 0.85rem;
     letter-spacing: 0.12em;
-    color: #991b1b;
+    color: var(--exam-errata-kicker);
     font-weight: 600;
     display: flex;
     align-items: center;
@@ -541,7 +658,7 @@
     padding: 4px 10px;
     border: none;
     border-radius: 999px;
-    background: #991b1b;
+    background: var(--exam-errata-kicker);
     color: #fff;
     cursor: pointer;
 }
@@ -549,7 +666,7 @@
 .exam-board-wrapper .schedule-rail-batch {
     letter-spacing: 0;
     font-weight: 500;
-    color: #6b7280;
+    color: var(--exam-schedule-batch);
 }
 
 .exam-board-wrapper .errata-rail-list {
@@ -565,8 +682,8 @@
     max-width: none;
     max-height: none;
     padding: 8px 10px;
-    border: 1px solid #fecaca;
-    background: rgba(255, 255, 255, 0.94);
+    border: 1px solid var(--exam-errata-compact-border);
+    background: var(--exam-errata-compact-bg);
     box-shadow: 0 4px 16px rgba(185, 28, 28, 0.08);
     display: flex;
     flex-direction: column;
@@ -579,8 +696,14 @@
     box-shadow: 0 0 0 2px #dc2626;
 }
 
+@media (prefers-color-scheme: dark) {
+    .exam-board-wrapper .errata-card.compact.is-new {
+        box-shadow: 0 0 0 2px #f87171;
+    }
+}
+
 .exam-board-wrapper .errata-card.compact.is-zoomed {
-    box-shadow: 0 0 0 2px #b91c1c;
+    box-shadow: 0 0 0 2px var(--exam-errata-kicker);
 }
 
 .exam-board-wrapper .errata-card.compact img {
@@ -608,7 +731,7 @@
     z-index: 50;
     padding: 14px 14px 16px;
     border-radius: 12px;
-    background: rgba(255, 255, 255, 0.82);
+    background: var(--exam-rail-bg);
     backdrop-filter: blur(8px);
     box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
     display: flex;
@@ -625,7 +748,7 @@
 }
 
 .exam-board-wrapper .schedule-rail-head {
-    color: #374151;
+    color: var(--exam-schedule-head);
     font-size: 0.85rem;
     font-weight: 600;
     letter-spacing: 0.12em;
@@ -647,40 +770,47 @@
     letter-spacing: 0;
     font-size: 0.75rem;
     font-weight: 700;
-    color: #111827;
+    color: var(--exam-schedule-head);
     background: #e5e7eb;
     border-radius: 999px;
     padding: 2px 8px;
     flex-shrink: 0;
 }
 
+@media (prefers-color-scheme: dark) {
+    .exam-board-wrapper .schedule-rail-toggle {
+        background: #4b5563;
+        color: #e5e7eb;
+    }
+}
+
 .exam-board-wrapper .board-health {
     margin-top: 16px;
     padding: 12px 12px 10px;
-    border: 1px solid #e5e7eb;
+    border: 1px solid var(--health-border);
     border-radius: 8px;
-    background: #f9fafb;
+    background: var(--health-bg);
     font-size: 0.85rem;
     line-height: 1.5;
-    color: #4b5563;
+    color: var(--health-text);
 }
 
 .exam-board-wrapper .board-health strong {
     font-weight: 600;
-    color: #111827;
+    color: var(--exam-schedule-head);
 }
 
 .exam-board-wrapper .board-health .is-ok,
-.exam-board-wrapper .board-health .is-ok strong { color: #166534; }
+.exam-board-wrapper .board-health .is-ok strong { color: var(--health-ok-color); }
 .exam-board-wrapper .board-health .is-wait,
-.exam-board-wrapper .board-health .is-wait strong { color: #92400e; }
+.exam-board-wrapper .board-health .is-wait strong { color: var(--health-wait-color); }
 .exam-board-wrapper .board-health .is-bad,
-.exam-board-wrapper .board-health .is-bad strong { color: #991b1b; }
+.exam-board-wrapper .board-health .is-bad strong { color: var(--health-bad-color); }
 
 .exam-board-wrapper .schedule-empty {
     margin: 12px 0 0;
     font-size: 0.9rem;
-    color: #6b7280;
+    color: var(--exam-hint-text);
 }
 
 .exam-board-wrapper .schedule-list {
@@ -693,7 +823,7 @@
 
 .exam-board-wrapper .schedule-date {
     font-size: 0.75rem;
-    color: #6b7280;
+    color: var(--exam-hint-text);
     margin: 10px 0 4px;
 }
 
@@ -708,7 +838,7 @@
 }
 
 .exam-board-wrapper .schedule-row.is-done .schedule-row-body {
-    color: #9ca3af;
+    color: var(--schedule-done-color);
 }
 
 .exam-board-wrapper .schedule-row.is-done .schedule-name {
@@ -716,8 +846,8 @@
 }
 
 .exam-board-wrapper .schedule-row.is-active .schedule-row-body {
-    background: #fef3c7;
-    color: #92400e;
+    background: var(--schedule-active-bg);
+    color: var(--schedule-active-text);
     font-weight: 600;
 }
 
@@ -726,9 +856,9 @@
     letter-spacing: 0.04em;
 }
 
-.exam-board-wrapper .schedule-phase.is-done { color: #9ca3af; }
-.exam-board-wrapper .schedule-phase.is-active { color: #b45309; }
-.exam-board-wrapper .schedule-phase.is-upcoming { color: #2563eb; }
+.exam-board-wrapper .schedule-phase.is-done { color: var(--schedule-phase-done); }
+.exam-board-wrapper .schedule-phase.is-active { color: var(--schedule-phase-active); }
+.exam-board-wrapper .schedule-phase.is-upcoming { color: var(--schedule-phase-upcoming); }
 
 .exam-board-wrapper .schedule-time {
     font-variant-numeric: tabular-nums;

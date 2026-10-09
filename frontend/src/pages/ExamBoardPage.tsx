@@ -1128,7 +1128,12 @@ export default function ExamBoardPage() {
                         onChange={(e) => setDraftBatches(draftBatches.map((x, i) => i === bi ? { ...x, name: e.target.value } : x))}
                         placeholder="批次名称，如 高一"
                       />
-                      <button type="button" className="btn-delete" onClick={() => setDraftBatches(draftBatches.filter((_, i) => i !== bi))}>删除批次</button>
+                      <button
+                        type="button"
+                        className="btn-delete"
+                        disabled={draftBatches.length <= 1}
+                        onClick={() => setDraftBatches(draftBatches.filter((_, i) => i !== bi))}
+                      >删除批次</button>
                     </div>
                     <table className="schedule-table">
                       <thead>
@@ -1284,7 +1289,7 @@ export default function ExamBoardPage() {
                 关闭
               </button>
             </div>
-            <p className="errata-zoom-dismiss-hint">也可点周围暗处关闭</p>
+            <p className="errata-zoom-dismiss-hint">也可点周围暗处取消</p>
           </div>
         </div>
       )}

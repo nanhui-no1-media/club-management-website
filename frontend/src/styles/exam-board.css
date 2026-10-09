@@ -137,6 +137,12 @@
     color: #6b7280;
 }
 
+.exam-board-wrapper .batch-actions {
+    margin-top: 10px;
+    padding-top: 20px;
+    border-top: 1px solid rgba(0, 0, 0, 0.08);
+}
+
 .exam-board-wrapper .board-tools {
     position: fixed;
     top: 16px;

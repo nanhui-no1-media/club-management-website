@@ -16,20 +16,6 @@ export function pngBuffer(): Buffer {
   return Buffer.from(PNG_BASE64, "base64");
 }
 
-/**
- * 128×64（严格 2:1）JPEG —— 校园全景图导入用例专用。
- *
- * 为什么不能复用上面的 PNG：后端只收宽高比 2:1（±5%）的完整球面全景图
- * （见 panorama/services.py 的准入规则），320×200 会被以 not_equirectangular 拒掉。
- */
-export const PANORAMA_JPEG_BASE64 =
-  "/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAgGBgcGBQgHBwcJCQgKDBQNDAsLDBkSEw8UHRofHh0aHBwgJC4nICIsIxwcKDcpLDAxNDQ0Hyc5PTgyPC4zNDL/2wBDAQkJCQwLDBgNDRgyIRwhMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjL/wAARCABAAIADASIAAhEBAxEB/8QAFgABAQEAAAAAAAAAAAAAAAAABgcF/8QAHxAAAQMFAQEBAAAAAAAAAAAAAAIEcwEFNbGyNAN0/8QAFgEBAQEAAAAAAAAAAAAAAAAABAMG/8QAHREAAQQDAQEAAAAAAAAAAAAAAAECBTIDBDFxM//aAAwDAQACEQMRAD8Awgw69n3kVsThh17PvIrZp9uqGUi7u8FwRee5xIrYuCLz3OJFbIZeIJ0bKNAY997mVW6jMGPfe5lVuocRg6o6Az/IupV7qOQM/wAi6lXupDD1RCFAAFxybuZfVR+ALjk3cy+qh9Oyic3EKMTq5ZV5OvqpRSdXLKvJ19VIRt3CNyqFLJrdMs9nX1UpRNbplns6+qh4e7vBEnRpUSXXXMPv0fTqpUSXXXMPv0fTqpCC+j/BMzRvoiDDr2feRWxOGHXs+8itm026oYSLu7wXBF57nEiti4IvPc4kVshl4gnRso0Bj33uZVbqMwY997mVW6hxGDqjoDP8i6lXuo5Az/IupV7qQw9UQhQABccm7mX1UfgC45N3MvqofTsonNxCjE6uWVeTr6qUUnVyyrydfVSEbdwjcqhSya3TLPZ19VKUTW6ZZ7OvqoeHu7wRJ0aVEl11zD79H06qVEl11zD79H06qQgvo/wTM0b6Igw69n3kVsThh17PvIrZtNuqGEi7u8FwRee5xIrYuCLz3OJFbIZeIJ0bKNAY997mVW6jMGPfe5lVuocRg6o6Az/IupV7qOQM/wAi6lXupDD1RCFAAFxybuZfVR+ALjk3cy+qh9Oyic3EKMTq5ZV5OvqpRSdXLKvJ19VIRt3CNyqFLJrdMs9nX1UpRNbplns6+qh4e7vBEnRpUSXXXMPv0fTqpUSXXXMPv0fTqpCC+j/BMzRvoiDDr2feRWxOGHXs+8itm026oYSLu7wXBF57nEiti4IvPc4kVshl4gnRso0Bj33uZVbqMwY997mVW6hxGDqjoDP8i6lXuo5Az/IupV7qQw9UQhQABccm7mX1UfgC45N3MvqofTsonNxCjE6uWVeTr6qUUnVyyrydfVSEbdwjcqhSya3TLPZ19VKUTW6ZZ7OvqoeHu7wRJ0aVEl11zD79H06qVEl11zD79H06qQgvo/wTM0b6f//Z";
-
-/** 2:1 测试全景图 Buffer。 */
-export function panoramaBuffer(): Buffer {
-  return Buffer.from(PANORAMA_JPEG_BASE64, "base64");
-}
-
 /** 每次运行唯一的标题，避免历史数据干扰断言。 */
 export function uniqueTitle(prefix: string): string {
   return `${prefix} ${Date.now()}`;

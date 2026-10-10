@@ -19,10 +19,11 @@ import {
 } from "../types/panorama";
 import "../styles/panorama.css";
 
+/** 状态徒标配色：ready 用既有 badge-success，failed 用本域自备的 badge-danger。 */
 const statusBadge = (status: PanoramaListItem["status"]) => {
   if (status === "ready") return "badge badge-success";
   if (status === "failed") return "badge badge-danger";
-  return "badge";
+  return "badge badge-ghost";
 };
 
 export default function PanoramaManagePage() {
@@ -230,8 +231,8 @@ export default function PanoramaManagePage() {
           <div className="card card-pad" style={{ marginTop: "var(--s-5)" }}>
             <h1 style={{ fontSize: 20, marginBottom: 8 }}>管理校园全景图</h1>
             <p className="muted">
-              仅持有「管理校园全景图」权限的成员可进入。如需导入 / 编辑全景图，请联系信息组授予
-              `panorama.manage_panoramas`。
+              仅持有「管理校园全景图」权限（panorama.manage_panoramas）的成员可进入。
+              如需导入或编辑全景图，请联系信息组授予该权限。
             </p>
             <p style={{ marginTop: 12 }}>
               <Link className="btn btn-ghost" to="/panorama">去看全景图</Link>
@@ -368,7 +369,7 @@ export default function PanoramaManagePage() {
 
                   {item.status === "failed" && (
                     <p className="pano-note pano-note-error">
-                      切片失败：详情里可看到具体原因，点「重新切片」可重试（不需重传原图）。
+                      切片失败：点「重新切片」可重试（不需重传原图）；若反复失败，请核对原图是否完整。
                     </p>
                   )}
 

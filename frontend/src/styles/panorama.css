@@ -11,10 +11,13 @@
   background: #0b1220;
 }
 
+/* 舞台自身也要定位：Marzipano 注入的子节点是绝对定位的 */
 .pano-stage {
+  position: relative;
   width: 100%;
   height: min(72vh, 720px);
   min-height: 320px;
+  overflow: hidden;
 }
 
 /* Marzipano 自建的 canvas / div 填满舞台 */
@@ -131,6 +134,13 @@
   border-color: rgba(22, 163, 74, 0.35);
   background: rgba(22, 163, 74, 0.07);
   color: #15803d;
+}
+
+/* 切片失败等需要“危险”配色的徒标（cobalt 是否有 badge-danger 不确，自备一份） */
+.badge-danger {
+  background: rgba(220, 38, 38, 0.12);
+  border-color: rgba(220, 38, 38, 0.35);
+  color: #b91c1c;
 }
 
 /* ── 管理页：上传表单 ─────────────────────────────────────── */

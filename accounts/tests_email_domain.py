@@ -51,9 +51,14 @@ class WhitelistUnitTest(TestCase):
         for domain in ("gmail.com", "example.com", "yahoo.com", "hotmail.co.uk", "mail.ru"):
             self.assertFalse(is_allowed_email_domain(f"member@{domain}"), domain)
 
-    def test_missing_at_sign_rejected(self):
-        for raw in ("", "163.com", "member@", "@163.com"):
+    def test_missing_domain_rejected(self):
+        for raw in ("", "163.com", "member@", "member@ "):
             self.assertFalse(is_allowed_email_domain(raw), raw)
+
+    def test_domain_helper_ignores_empty_local_part(self):
+        # 域名判定只看 @ 之后；本地部分为空 / 畸形地址由调用方的 EmailValidator 判「格式不正确」
+        self.assertTrue(is_allowed_email_domain("@163.com"))
+        self.assertEqual(email_domain("@163.com"), "163.com")
 
     def test_email_domain_helper(self):
         self.assertEqual(email_domain(" Member@QQ.com "), "qq.com")

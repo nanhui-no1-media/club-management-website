@@ -29,6 +29,12 @@ from rest_framework.request import Request
 from common.policy import get_policy
 
 from .authcode import AuthCodeError, redeem_authcode
+from .email_domains import (
+    EMAIL_DOMAIN_BLOCKED_MESSAGE,
+    EMAIL_DOMAIN_BLOCKED_REASON,
+    email_domain,
+    is_allowed_email_domain,
+)
 from .forms import LoginForm, PasswordResetForm, PasswordResetConfirmForm, ProfileForm, ChangePasswordForm
 from .models import Profile, IdentityProof, UserSession, Verification, is_verified, verification_valid_days
 from .tokens import email_verification_token
@@ -56,6 +62,7 @@ def _verification_closed_response():
         {"error": "验证通道已关闭", "reason": "verification_closed"},
         status=403,
     )
+
 
 IDENTITY_CHOICE_KEYS = {key for key, _label in Profile.IDENTITY_CHOICES}
 
@@ -236,7 +243,8 @@ def verification_email_bind_view(request):
       - 首次绑定 / 重发同邮箱 → 建或刷新 pending 行并发信；
       - 换邮箱（含已验证旧邮箱）→ 回 pending(identifier=新)，旧 User.email 在新验证前仍有效；
       - 已验证且未过期同邮箱再绑 → no-op（不降级）；过期则回落重新验证。
-    绑定时校验邮箱唯一（User.email 或他人 pending identifier）。
+    绑定时校验邮箱唯一（User.email 或他人 pending identifier）与**后缀白名单**（ADR-0023：
+    只拦新地址，既有同址重发 / 复绑按祖父条款放行）。
     """
     if not get_policy().verification_enabled:
         return _verification_closed_response()
@@ -265,6 +273,12 @@ def verification_email_bind_view(request):
         and (existing.expires_at is None or existing.expires_at > timezone.now())
     ):
         return JsonResponse({"message": "该邮箱已验证。"})
+
+    # 后缀白名单（ADR-0023）：只拦「新地址」；既有同址（重发 / 复绑，含白名单上线前留下的
+    # 非白名单地址）放行——不回溯旧数据，否则这批人会被卡在验证中途。
+    same_identifier = existing is not None and existing.identifier == email
+    if not same_identifier and not is_allowed_email_domain(email):
+        return _email_domain_blocked_response(email)
 
     # 唯一性：不可绑他账号有效持有的邮箱（已验证 User.email 或他人 pending identifier）
     if _email_taken(email, exclude_user=user):
@@ -499,8 +513,9 @@ def register_view(request):
 
     注册↔验证分离：邮箱 / 身份证明仍挪在验证面板；但 real_name / identity 为注册必填，
     写入 Profile（identity 须合法枚举）。新号无 Verification 行 ⇒ 未验证（访客）。
-    若提供邮箱：建 email 通道 pending（identifier=待验地址）并发验证信，
-    ``User.email`` 保持空（待验邮箱不住 User.email）——验证通过才晋升（见 verify_email_view）。
+    若提供邮箱：须过**后缀白名单**（ADR-0023），再建 email 通道 pending（identifier=待验地址）
+    并发验证信，``User.email`` 保持空（待验邮箱不住 User.email）——验证通过才晋升
+    （见 verify_email_view）。
     """
     if not get_policy().registration_enabled:
         return JsonResponse(
@@ -518,6 +533,10 @@ def register_view(request):
     identity = (request.POST.get("identity") or "").strip()
     email = (request.POST.get("email") or "").strip().lower()  # 邮箱大小写不敏感：归一化小写
     turnstile_token = request.POST.get("turnstile_token") or ""
+
+    # 邮箱后缀白名单（ADR-0023）：不支持的域名立即拒绝（带专属 reason，前端弹窗提示换邮箱）。
+    if email and not is_allowed_email_domain(email):
+        return _email_domain_blocked_response(email)
 
     errors = []
 
@@ -598,6 +617,7 @@ def verify_email_view(request):
     令牌绑 identifier + 通道 status（见 tokens）：改待验邮箱或验证通过后旧令牌失效。
     验证通过：identifier 晋升写入 User.email（绑定邮箱生效，可用邮箱登录 / 重置密码）。
     ADR-0041：通过时设 expires_at = 通过日 + 认证有效期。
+    不校验后缀白名单（ADR-0023 决策 4）：令牌已限定为既有 pending 地址，落地即完成该地址的验证。
     """
     if not get_policy().verification_enabled:
         return _verification_closed_response()
@@ -629,6 +649,7 @@ def resend_verification_view(request):
 
     不泄密：无论邮箱是否存在 / 是否在验 / 已验证，返回同样提示（防账号探测）。
     只对「存在 pending email 通道、账号启用」的账号真正发信（发往待验 identifier）。
+    不校验后缀白名单（ADR-0023 决策 4）：只重发既有待验地址，不接收新地址。
     """
     if not get_policy().verification_enabled:
         return _verification_closed_response()
@@ -686,6 +707,22 @@ def identity_proof_file_view(request, pk):
 def _get_or_create_profile(user):
     profile, _ = Profile.objects.get_or_create(user=user)
     return profile
+
+
+def _email_domain_blocked_response(email):
+    """邮箱后缀不在白名单（ADR-0023）：固定文案 + 专属 reason + 命中的域名。
+
+    前端据 reason 映射成类型化 ``email_domain_not_allowed`` 并用 NoticeModal 弹窗展示文案
+    （文案在 accounts.email_domains 与 frontend/src/api/shared.ts 各一份，契约测试钉死一致）。
+    """
+    return JsonResponse(
+        {
+            "error": EMAIL_DOMAIN_BLOCKED_MESSAGE,
+            "reason": EMAIL_DOMAIN_BLOCKED_REASON,
+            "domain": email_domain(email),
+        },
+        status=400,
+    )
 
 
 def _email_taken(email, exclude_user=None):
@@ -988,4 +1025,3 @@ def user_content_view(request, id):
         "previous": paginator.get_previous_link(),
         "results": results,
     })
-

@@ -246,6 +246,7 @@ try {
 | `can_change_activity` | 活动详情管理动作（编辑/生命周期）；`SurveyEditorPage` 编辑权限（或本人创建） |
 | `can_review_collections` | 活动征集复审（`CollectionPanel` 的 isReviewer） |
 | `can_edit_about` | 关于页/首页编辑入口；`JoinEditorPage` 问卷编辑权限 |
+| `can_manage_panoramas` | 校园全景图管理入口（导入 / 编辑 / 删除 / 重切片，全景图库页；随全景浏览页一并落地） |
 | `can_manage_exam` | 考试看板管理态（编辑考试/批次） |
 | `can_mute_user` | 用户主页「全站禁言」入口（`MuteUserPanel`） |
 | `can_manage_tasks` / `can_assign_task` / `can_manage_tags` / `can_force_publish` / `can_manage_comment_thread` / `can_manage_announcement` | 主要在个人中心「权限」面板（`PermissionsPanel`）中展示说明；相关操作由后端校验 |

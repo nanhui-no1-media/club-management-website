@@ -696,6 +696,7 @@ def _capabilities(user):
         "can_handle_reports": user.has_perm("reviews.handle_report"),
         "can_review_collections": user.has_perm("activities.review_collection"),
         "can_edit_about": user.has_perm("about.manage_aboutpage"),
+        "can_manage_panoramas": user.has_perm("panorama.manage_panoramas"),
         "can_manage_exam": user.has_perm("exam_board.manage_exams"),
         "can_review_content": user.has_perm("reviews.moderate"),
         "can_review_identity": user.has_perm("accounts.can_review_identity"),

@@ -210,7 +210,7 @@ def verification_status_view(request):
 
     每个已定义通道一卡，按 CHANNELS 序。无 Verification 行的通道 status="none"（前端映射
     「未绑定 / 未提交」；后台委任 none 不铺卡）。通道对象键集与前端 VerificationPanel 契约
-    （见契约测试）。ADR-0041：额外返回 expires_at 供前端展示有效期 / 过期态。
+    （见契约测试）。``is_verified`` 已含有效期判定（ADR-0041），键集契约保持不变。
     """
     user = request.user
     rows = {v.channel: v for v in user.verifications.all()}
@@ -222,7 +222,6 @@ def verification_status_view(request):
             "status": v.status if v else "none",
             "identifier": v.identifier if v else "",
             "verified_at": v.verified_at.isoformat() if v and v.verified_at else None,
-            "expires_at": v.expires_at.isoformat() if v and v.expires_at else None,
         })
     return JsonResponse({"is_verified": is_verified(user), "channels": channels})
 

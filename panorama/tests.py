@@ -1,7 +1,7 @@
 """panorama 应用测试：DJI 元数据解析、瓦片切片、导入准入、权限与可见性。
 
 素材全部现场合成（PIL 画一张小图 + 手写 XMP APP1 段），不依赖任何仓库内大文件，
-切片规模按 1024×512 起（单层两层瓦片）以保持测试毫秒级。
+切片规模按 1024×512 起（单层两张瓦片）以保持测试毫秒级。
 """
 import io
 import os
@@ -45,10 +45,8 @@ DJI_XMP = """<?xpacket begin="\ufeff" id="W5M0MpCehiHzreSzNTczkc9d"?>
 </x:xmpmeta>
 <?xpacket end="w"?>"""
 
-# 裁切过的全景：GPano 自报裁切宽度 < 全图宽度。
-CROPPED_XMP = DJI_XMP.replace('CroppedAreaImageWidthPixels="4096"', 'FullPanoWidthPixels="8192"').replace(
-    'FullPanoWidthPixels="4096"', 'FullPanoWidthPixels="8192"',
-)
+# 裁切过的全景：GPano 自报裁切宽度（4096）小于全图宽度（8192）→ 不是完整球面。
+CROPPED_XMP = DJI_XMP.replace('FullPanoWidthPixels="4096"', 'FullPanoWidthPixels="8192"')
 
 
 def _equirect_jpeg(width: int = 1024, height: int = 512, *, xmp: str | None = None) -> bytes:
@@ -79,7 +77,7 @@ def _upload(data: bytes, name: str) -> SimpleUploadedFile:
 
 
 def _media_files() -> list[str]:
-    """MEDIA_ROOT 下的全部相对路径（断言「没落压缩包」这类事实）。"""
+    """MEDIA_ROOT 下的全部相对路径（用于断言「没落压缩包」这类事实）。"""
     found = []
     for root, _dirs, files in os.walk(default_storage.location):
         for name in files:
@@ -333,9 +331,7 @@ class ImportStaticPanoramasCommandTest(_MediaRootMixin, TestCase):
         call_command("import_static_panoramas", "--source-dir", str(self.source_dir), verbosity=0)
         self.assertEqual(Panorama.objects.count(), 2)
         self.assertEqual(Panorama.objects.filter(status=Panorama.STATUS_READY).count(), 2)
-        self.assertEqual(
-            Panorama.objects.filter(origin=Panorama.ORIGIN_IMPORT).count(), 2
-        )
+        self.assertEqual(Panorama.objects.filter(origin=Panorama.ORIGIN_IMPORT).count(), 2)
 
         call_command("import_static_panoramas", "--source-dir", str(self.source_dir), verbosity=0)
         self.assertEqual(Panorama.objects.count(), 2)  # 幂等：不重复导入

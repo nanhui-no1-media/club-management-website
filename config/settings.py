@@ -110,6 +110,7 @@ INSTALLED_APPS = [
     'common',
     'accounts',
     'about',
+    'panorama',
     'tasks',
     'messaging',
     'activities',

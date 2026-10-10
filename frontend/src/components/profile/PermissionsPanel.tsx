@@ -12,6 +12,7 @@ const CAP_LABELS: Record<string, string> = {
   can_handle_reports: "处理举报案",
   can_review_collections: "复审征集",
   can_edit_about: "编辑关于",
+  can_manage_panoramas: "管理校园全景图",
   can_manage_exam: "管理考试看板",
   can_review_content: "审核内容",
   can_review_identity: "审核身份",
@@ -85,6 +86,14 @@ const CAP_ICONS: Record<string, ReactNode> = {
       <circle cx={12} cy={12} r={9} />
       <path d="M12 11v5" />
       <path d="M12 7.5h.01" />
+    </Svg>
+  ),
+  can_manage_panoramas: (
+    <Svg>
+      <circle cx={12} cy={12} r={9} />
+      <ellipse cx={12} cy={12} rx={3.6} ry={9} />
+      <path d="M3.2 9.5h17.6" />
+      <path d="M3.2 14.5h17.6" />
     </Svg>
   ),
   can_manage_exam: (

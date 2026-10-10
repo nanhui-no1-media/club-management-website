@@ -30,7 +30,7 @@ from common.policy import get_policy
 
 from .authcode import AuthCodeError, redeem_authcode
 from .forms import LoginForm, PasswordResetForm, PasswordResetConfirmForm, ProfileForm, ChangePasswordForm
-from .models import Profile, IdentityProof, UserSession, Verification, is_verified
+from .models import Profile, IdentityProof, UserSession, Verification, is_verified, verification_valid_days
 from .tokens import email_verification_token
 from .throttles import (
     AuthCodeRedeemThrottle,
@@ -40,6 +40,7 @@ from .throttles import (
 )
 from .turnstile import passes_turnstile, turnstile_error_response
 from .utils import SESSION_HISTORY_LIMIT
+from .validity import enforce_account_validity
 from .visibility import content_visibility, profile_view_for
 
 logger = logging.getLogger(__name__)
@@ -138,6 +139,16 @@ def login_view(request):
         return JsonResponse({"error": "Invalid credentials"}, status=401)
 
     # 密码正确 → 确为本人，可安全揭示账号状态（停用 / 放行）。
+    # 惰性执行身份有效期（ADR-0041）：过期管理员撤销 / 超期未认证停用。
+    action = enforce_account_validity(candidate)
+    if action == "unverified_expired":
+        return JsonResponse(
+            {
+                "error": "本账户超过 60 日未认证，已被系统停用。请联系社长或服务器管理员处理。",
+                "reason": "account_expired_unverified",
+            },
+            status=403,
+        )
     if not candidate.is_active:
         return JsonResponse(
             {"error": "账号已停用，请联系信息组。", "reason": "account_disabled"},
@@ -194,7 +205,7 @@ def verification_status_view(request):
 
     每个已定义通道一卡，按 CHANNELS 序。无 Verification 行的通道 status="none"（前端映射
     「未绑定 / 未提交」；后台委任 none 不铺卡）。通道对象键集与前端 VerificationPanel 契约
-    （见契约测试）。
+    （见契约测试）。ADR-0041：额外返回 expires_at 供前端展示有效期 / 过期态。
     """
     user = request.user
     rows = {v.channel: v for v in user.verifications.all()}
@@ -206,6 +217,7 @@ def verification_status_view(request):
             "status": v.status if v else "none",
             "identifier": v.identifier if v else "",
             "verified_at": v.verified_at.isoformat() if v and v.verified_at else None,
+            "expires_at": v.expires_at.isoformat() if v and v.expires_at else None,
         })
     return JsonResponse({"is_verified": is_verified(user), "channels": channels})
 
@@ -219,7 +231,7 @@ def verification_email_bind_view(request):
     不住此）——验证通过才晋升（见 verify_email_view）。故：
       - 首次绑定 / 重发同邮箱 → 建或刷新 pending 行并发信；
       - 换邮箱（含已验证旧邮箱）→ 回 pending(identifier=新)，旧 User.email 在新验证前仍有效；
-      - 已验证同邮箱再绑 → no-op（不降级）。
+      - 已验证且未过期同邮箱再绑 → no-op（不降级）；过期则回落重新验证。
     绑定时校验邮箱唯一（User.email 或他人 pending identifier）。
     """
     if not get_policy().verification_enabled:
@@ -241,11 +253,12 @@ def verification_email_bind_view(request):
 
     user = request.user
     existing = user.verifications.filter(channel=Verification.CHANNEL_EMAIL).first()
-    # 已验证同邮箱再绑 → no-op（不降级为 pending、不重发）
+    # 已验证且未过期同邮箱再绑 → no-op（不降级为 pending、不重发）
     if (
         existing is not None
         and existing.status == Verification.STATUS_APPROVED
         and existing.identifier == email
+        and (existing.expires_at is None or existing.expires_at > timezone.now())
     ):
         return JsonResponse({"message": "该邮箱已验证。"})
 
@@ -259,12 +272,13 @@ def verification_email_bind_view(request):
             status=Verification.STATUS_PENDING, identifier=email,
         )
     else:
-        # 换邮箱：回 pending + 新 identifier；旧 verified_at/by 随之失效（令牌绑 status 也失效）
+        # 换邮箱 / 过期重验：回 pending + 新 identifier；旧 verified_at/by/expires_at 随之失效
         existing.status = Verification.STATUS_PENDING
         existing.identifier = email
         existing.verified_at = None
         existing.verified_by = None
-        existing.save(update_fields=["status", "identifier", "verified_at", "verified_by"])
+        existing.expires_at = None
+        existing.save(update_fields=["status", "identifier", "verified_at", "verified_by", "expires_at"])
 
     _send_verification_email(user)
     return JsonResponse({"message": "验证邮件已发送，请查收。"})
@@ -277,8 +291,8 @@ def verification_manual_submit_view(request):
 
     multipart：real_name + identity（在校生 / 外校生 / 毕业生 / 家长 / 教师）+ proof_files[]
     （1~3 张 jpg/png/webp，单张 ≤5MB）。把 manual 通道置 pending + IdentityProof 累加（永久
-    留底，审核通过后亦不删）。仅当 manual 当前 none / rejected 可提交（pending 审核中、已通过
-    不可重复）。real_name / identity 写入 Profile（人工审核需知真实身份）。
+    留底，审核通过后亦不删）。仅当 manual 当前 none / rejected / 已过期 可提交（pending 审核中、
+    已通过且未过期 不可重复）。real_name / identity 写入 Profile（人工审核需知真实身份）。
     """
     if not get_policy().verification_enabled:
         return _verification_closed_response()
@@ -305,20 +319,25 @@ def verification_manual_submit_view(request):
 
     user = request.user
     existing = user.verifications.filter(channel=Verification.CHANNEL_MANUAL).first()
-    # 审核中 / 已通过 → 不可重复提交（驳回后重交才允许）
-    if existing is not None and existing.status in (
-        Verification.STATUS_PENDING, Verification.STATUS_APPROVED,
+    # 审核中 → 不可重复提交；已通过且未过期 → 无需重交；驳回 / 已过期 → 允许重交（重新认证）
+    if existing is not None and existing.status == Verification.STATUS_PENDING:
+        return JsonResponse({"error": "当前审核中，请勿重复提交"}, status=400)
+    if (
+        existing is not None
+        and existing.status == Verification.STATUS_APPROVED
+        and (existing.expires_at is None or existing.expires_at > timezone.now())
     ):
-        return JsonResponse({"error": "当前不可提交（审核中或已通过）"}, status=400)
+        return JsonResponse({"error": "当前已通过认证，无需重复提交"}, status=400)
 
     with transaction.atomic():
-        # none → 建 pending；rejected（重交）→ 回 pending + 清旧审核痕迹
+        # none → 建 pending；rejected（重交）/ 已过期（重新认证）→ 回 pending + 清旧审核痕迹
         Verification.objects.update_or_create(
             user=user, channel=Verification.CHANNEL_MANUAL,
             defaults={
                 "status": Verification.STATUS_PENDING,
                 "verified_at": None,
                 "verified_by": None,
+                "expires_at": None,
             },
         )
         for f in proof_files:
@@ -352,7 +371,8 @@ def verification_authcode_redeem_view(request):
 
     码由持 accounts.add_authcode 的用户在 Django 后台生成、线下分发；成员在此兑换，
     即时通过（无 pending、无人工环节）。无效 / 过期 / 用尽 / 吊销计入按账号节流
-    （只计失败）；成功不占额度。已通过任意通道的账号不可再兑换（不消耗任何码）。
+    （只计失败）；成功不占额度。ADR-0041：已通过且未过期的账号不可再兑换；认证过期
+    后允许重新兑换（重新认证）。
     """
     if not get_policy().verification_enabled:
         return _verification_closed_response()
@@ -573,6 +593,7 @@ def verify_email_view(request):
 
     令牌绑 identifier + 通道 status（见 tokens）：改待验邮箱或验证通过后旧令牌失效。
     验证通过：identifier 晋升写入 User.email（绑定邮箱生效，可用邮箱登录 / 重置密码）。
+    ADR-0041：通过时设 expires_at = 通过日 + 认证有效期。
     """
     if not get_policy().verification_enabled:
         return _verification_closed_response()
@@ -590,7 +611,8 @@ def verify_email_view(request):
         v.status = Verification.STATUS_APPROVED
         v.verified_at = timezone.now()
         v.verified_by = None  # 邮箱自证，无审核人
-        v.save(update_fields=["status", "verified_at", "verified_by"])
+        v.expires_at = v.verified_at + timedelta(days=verification_valid_days())
+        v.save(update_fields=["status", "verified_at", "verified_by", "expires_at"])
     if user.email != v.identifier:
         user.email = v.identifier
         user.save(update_fields=["email"])

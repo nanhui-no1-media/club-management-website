@@ -30,7 +30,7 @@ npm run build   # webpack --mode production && copy-surveyjs && assert-live2d-di
 npm run copy-surveyjs
 ```
 
-- **开发**：webpack-dev-server 监听 3000 端口，热更新，`historyApiFallback` 指向 `/static/index.html`；`webpack.config.js` 的 `devServer.proxy` 将 `/ws/messaging`、`/ws/exam-board`（WebSocket）与 `/auth`、`/tasks`、`/news`、`/messaging`、`/activities`、`/reviews`、`/about`、`/exam_board`、`/tutorials`、`/recruitment`、`/attachments`、`/uploads`、`/site-policy`、`/media`、`/admin`（HTTP）全部代理到 `http://localhost:8000`。
+- **开发**：webpack-dev-server 监听 3000 端口，热更新，`historyApiFallback` 指向 `/static/index.html`；`webpack.config.js` 的 `devServer.proxy` 将 `/ws/messaging`、`/ws/exam-board`（WebSocket）与 `/auth`、`/tasks`、`/news`、`/messaging`、`/activities`、`/reviews`、`/about`、`/exam_board`、`/tutorials`、`/recruitment`、`/attachments`、`/uploads`、`/site-policy`、`/panorama`、`/media`、`/admin`（HTTP）全部代理到 `http://localhost:8000`。
 - **构建**：webpack 输出 `frontend/dist/`，JS 文件名带 `contenthash`，`publicPath` 为 `/static/`（与 Django `STATIC_URL` 对齐）；`splitChunks` 把 node_modules 拆为 `vendor` chunk（**排除 `l2d`**，看板娘运行时单独成块避免大包）；`CopyWebpackPlugin` 把 `vendor/live2d/` 整目录拷入 `dist/live2d`；`HtmlWebpackPlugin` 以 `template.html` 生成 `index.html`。
 
 请求链路（两种模式）：
@@ -71,7 +71,7 @@ frontend/
 │   ├── api/               # API 客户端（按后端前缀拆分）+ WebSocket 客户端
 │   ├── types/             # 按域的类型定义（news/tasks/activities/messaging…）
 │   ├── hooks/             # usePagedList（分页列表钩子）
-│   ├── utils/             # device、deviceId、survey、surveyLocale、iframeEmbed
+│   ├── utils/             # device、deviceId、survey、surveyLocale、iframeEmbed、marzipano
 │   ├── examBoard/         # 考试看板纯逻辑：prefs、audio、validate
 │   └── styles/            # 共享样式：cobalt 主题 + 各域页面样式
 ├── scripts/               # copy-surveyjs / assert-* 构建钩子
@@ -90,7 +90,7 @@ frontend/
 - **视图部件**：`TaskGantt`（frappe-gantt 甘特）、`TaskTimeline`（任务时间线）。
 - **看板娘**：`mascot/MascotHost`、`mascot/loadWidget`（懒加载 chunk）、`mascot/speak`（气泡喊话）。
 
-页面级样式有两种归属：组件专属的与组件同目录（如 `components/AppShell.css`、`pages/TaskFormPage.css`），跨页复用的域样式集中放 `styles/`（`home/list/detail/news/comments/messages/profile/form/about/survey/mobile/exam-board.css`）。
+页面级样式有两种归属：组件专属的与组件同目录（如 `components/AppShell.css`、`pages/TaskFormPage.css`），跨页复用的域样式集中放 `styles/`（`home/list/detail/news/comments/messages/profile/form/about/survey/panorama/mobile/exam-board.css`）。
 
 ## 样式与主题
 
@@ -101,6 +101,7 @@ frontend/
 - **状态类**：`AppShell` 在 body 上切换 `is-authed`，cobalt 的 `.act-guest` / `.act-user` 由此控制登录前后两套界面显隐；考试看板另有 `exam-board-*` 系列类名（`examBoard/prefs.ts` 同步切换）。
 - **字体**：Sora + Noto Sans SC，Google Fonts `@import` 引入，中文正文 15px / line-height 1.6。
 - **域样式**：各域 CSS 与页面就近 import；移动版共享 `mobile.css` 并以 `m-` 前缀隔离。
+- **写入习惯**：新域样式尽量用 `var(--token, 兜底值)` 写法（token 改名时不会整块“无样式”，深色模式下也不会突然不可读）。
 
 ## 路由与页面
 
@@ -114,6 +115,8 @@ frontend/
 | `/m/activity` | `MobileActivityPage` |  | 手机版活动 |
 | `/m/me` | `MobileMePage` |  | 手机版「我的」 |
 | `/about` | `AboutPage` |  | 关于我们 |
+| `/panorama` | `PanoramaPage` |  | 校园全景浏览（`?id=N` 选场景；Marzipano 多级瓦片 + 首层常驻） |
+| `/panorama/manage` | `PanoramaManagePage` | ✅ | 全景图管理（导入 / 编辑 / 重切 / 删除），需 `can_manage_panoramas` |
 | `/news` | `NewsListPage` |  | 新闻列表 |
 | `/news/new` | `NewsFormPage` | ✅ | 新建/编辑共用表单 |
 | `/news/:id` | `NewsDetailPage` |  | 新闻详情（正文 + 评论 + 附件） |
@@ -153,7 +156,7 @@ frontend/
 | `/u/:id` | `UserProfile` |  | 用户主页（资料卡 + 内容列表 + 私信/禁言入口） |
 | `*` | — |  | `<Navigate to="/" replace />` 兜底 |
 
-布局例外（不套全站外壳）：`/tasks/new`、`/tasks/:id/edit`（`TaskFormPage` 自带 `.task-page` 布局）、`/exam`（考试看板全屏）；移动版页面自持 `.m-app` 外壳；`ProfileRedirect` 只做跳转不渲染。
+布局例外（不套全站外壳）：`/tasks/new`、`/tasks/:id/edit`（`TaskFormPage` 自带 `.task-page` 布局）、`/exam`（考试看板全屏）；移动版页面自持 `.m-app` 外壳；`ProfileRedirect` 只做跳转不渲染。`/panorama` 仍套 `AppShell`，但舞台区自带暗底容器与全屏按钮（不另开布局变体）。
 
 页面内的重要子组件（非路由）：
 
@@ -163,7 +166,7 @@ frontend/
 | 审核队列预览 | `pages/review/ReviewPreview` |
 | 个人中心（`UserProfile` 的 tab 面板） | `profile/ProfileHero`、`ProfileSideNav`、`ProfileTabs`、`ProfileEditPanel`、`VerificationPanel`、`PasswordPanel`、`SessionsPanel`、`ContentListPanel`、`PermissionsPanel`、`MuteUserPanel` |
 
-URL 查询参数约定（hash 部分之后）：tab 状态用查询参数（如 `/u/3?tab=verification`、`/profile?tab=verification`）并由页面用 `URLSearchParams` 读写；邮件链接参数（`uid`/`token`/`email`）；嵌入参数 `embed=1`（见「嵌入模式」）。
+URL 查询参数约定（hash 部分之后）：tab 状态用查询参数（如 `/u/3?tab=verification`、`/profile?tab=verification`）并由页面用 `URLSearchParams` 读写（`PanoramaPage` 的 `?id=` 选场景同理）；邮件链接参数（`uid`/`token`/`email`）；嵌入参数 `embed=1`（见「嵌入模式」）。
 
 ## API 客户端约定
 
@@ -179,6 +182,7 @@ URL 查询参数约定（hash 部分之后）：tab 状态用查询参数（如 
 | `api/reviews.ts` / `api/feedback.ts` / `api/reports.ts` | `/reviews` | 发布审核、意见反馈、举报案 |
 | `api/identityReviews.ts` | `/auth` | 身份审核（预约验证、证明投递） |
 | `api/about.ts` | `/about` | 关于页读写 |
+| `api/panorama.ts` | `/panorama` | 全景图列表/详情、导入（multipart）、改/删/重切片；`listAll()` 逐页拉全 |
 | `api/tutorials.ts` | `/tutorials` | 教程 CRUD |
 | `api/recruitment.ts` | `/recruitment` | 自我介绍问卷 schema |
 | `api/exam.ts` | `/exam_board` | 考试/课表/题目误刊 |
@@ -192,7 +196,7 @@ URL 查询参数约定（hash 部分之后）：tab 状态用查询参数（如 
 2. **响应 → 类型化结果**：`readResponse` 解析响应体，`classifyHttpResponse(status, data)` 把后端 `reason` 串/状态码映射为判别联合 `ApiError`：`session_superseded`（含 `takeover` 载荷）、`login_protection`、`login_throttled`、`account_disabled`、`email_not_verified`、`network`（断网或响应非 JSON）、`auth`(401)、`forbidden`(403)、`not_found`(404)、`http`（其余非 2xx）。`reason → kind` 的映射只发生在这一处，后端改字段名只改这一个函数。
 3. **抛错约定**：失败时抛 `Error`，并挂载 `err.status` 与 `err.apiError`（类型化）；调用方按 `apiError.kind` 分支而不是匹配中文字符串。`humanizeApiError` 用穷尽 switch 做 kind → 中文文案映射（新增 kind 时 TS 在 default 报错，强制补分支）。
 4. **挤号回调**：`session_superseded` 结果先交给注册的 `supersedeHandler`（由 `SessionGuard` 注册），再照常抛错。
-5. **列表分页**：DRF 信封 `{count, next, previous, results}`（类型 `types/pagination.ts::Paginated<T>`）。页面列表统一用 `hooks/usePagedList(fetcher, pageSize, filters, enabled)`：filter 变化自动回第 1 页、`refetch()` 强制重拉、`enabled=false` 时不发请求（等待身份解析等场景）；filters 经 ref 调用避免内联 fetcher 身份变化导致重复请求。非分页接口（如 `/auth/users/`）单独处理。
+5. **列表分页**：DRF 信封 `{count, next, previous, results}`（类型 `types/pagination.ts::Paginated<T>`）。页面列表统一用 `hooks/usePagedList(fetcher, pageSize, filters, enabled)`：filter 变化自动回第 1 页、`refetch()` 强制重拉、`enabled=false` 时不发请求（等待身份解析等场景）；filters 经 ref 调用避免内联 fetcher 身份变化导致重复请求。非分页接口（如 `/auth/users/`）单独处理；需要「一次拉全」的少数据列表（如全景图库）在 api 模块里自行逐页拉全。
 6. **WebSocket 只做提示**：`api/messagingSocket.ts`（`/ws/messaging/`，已登录可连；`dm / notification / comment / unread` 事件，指数退避重连）与 `api/examSocket.ts`（`/ws/exam-board/`，访客可连；课表与题目误刊广播）都遵循「HTTP 是事实源、socket 只提示刷新」；断线不影响页面功能，重连成功后重新订阅当前评论区。
 
 典型调用与错误分支（页面里的惯用形状）：
@@ -209,7 +213,7 @@ try {
 
 站点策略 `sitePolicy.ts` 是模块级单例：`fetchSitePolicy()` 在 App 启动时拉取并合并 `DEFAULTS`，`useSitePolicy()` / `useSitePolicyReady()` 订阅快照。`turnstile_enabled`、`dms_enabled`、`comments_enabled`、`verification_enabled`、`registration_enabled` 等开关据此驱动前端显隐（如关闭私信时导航与收件箱相应收敛）；拉取失败静默回退默认值（默认与后端一致，均为开启）。
 
-`src/types/` 按域放纯类型（`news / tasks / activities / messaging / profile / inbox / feed / feedback / reports / reviews / identityReviews / pagination`），并含少量展示常量（状态中文标签、配色映射等），不 import React。
+`src/types/` 按域放纯类型（`news / tasks / activities / messaging / profile / inbox / feed / feedback / reports / reviews / identityReviews / panorama / pagination`），并含少量展示常量（状态中文标签、配色映射等），不 import React。
 
 ## 身份与会话
 
@@ -246,7 +250,7 @@ try {
 | `can_change_activity` | 活动详情管理动作（编辑/生命周期）；`SurveyEditorPage` 编辑权限（或本人创建） |
 | `can_review_collections` | 活动征集复审（`CollectionPanel` 的 isReviewer） |
 | `can_edit_about` | 关于页/首页编辑入口；`JoinEditorPage` 问卷编辑权限 |
-| `can_manage_panoramas` | 校园全景图管理入口（导入 / 编辑 / 删除 / 重切片，全景图库页；随全景浏览页一并落地） |
+| `can_manage_panoramas` | 全景游览页的「管理全景图」入口与全景图管理页（导入/编辑/删除/重切） |
 | `can_manage_exam` | 考试看板管理态（编辑考试/批次） |
 | `can_mute_user` | 用户主页「全站禁言」入口（`MuteUserPanel`） |
 | `can_manage_tasks` / `can_assign_task` / `can_manage_tags` / `can_force_publish` / `can_manage_comment_thread` / `can_manage_announcement` | 主要在个人中心「权限」面板（`PermissionsPanel`）中展示说明；相关操作由后端校验 |
@@ -285,6 +289,7 @@ Django admin 用 iframe 内嵌 SPA 页面（如审核对象预览 `/#/news/5?emb
 
 - **SurveyJS 全家桶**（survey-core / survey-react-ui / survey-creator-core / survey-creator-react / survey-analytics + chart.js）：SPA 内 `SurveyFill`（填写，`utils/survey.ts` 统一响应式宽度与 `onComplete` 接后端，`utils/surveyLocale.ts` 中文 locale）、`SurveyCreatorPage`（编辑器，`saveSurveyFunc` 直连后端保存）、`SurveyResponsesPage` / `SurveyStatsPage`（答复与 analytics 仪表盘）。构建时另将未哈希 min 文件拷到 `static/surveyjs/` 与 `dist/surveyjs/`，专供 Django admin 的问卷编辑器/结果页模板使用——升级 survey-* 后必须重跑 `npm run copy-surveyjs`。
 - **看板娘（Live2D）**：`vendor/live2d/`（runtime + widget + 模型 + `catalog.json`）构建时拷到 `/static/live2d/`，运行时经 `l2d` npm 包渲染 Cubism 2/6 模型。`MascotHost` 分三态：`widget`（完整挂件，独立懒加载 chunk `mascot/loadWidget`）/ `chip`（「看板娘」小按钮）/ `none`（窄屏 ≤1024px、系统 `prefers-reduced-motion`、考试看板且关闭偏好）。开关存 localStorage（`mascot.enabled`）；考试看板经 `examBoard/prefs.ts` 与 `mascot/speak.ts` 让看板娘播报考试提示与倒计时语音。
+- **Marzipano（校园全景）**：**不是 npm 依赖**——它是服务端瓦片方案（[ADR-0022](../adr/0022-campus-panorama-library.md)）的渲染端，运行时由 `utils/marzipano.ts::loadMarzipano()` 从自托管静态资源 `/static/panorama/marzipano.js` 注入脚本（幂等、失败可重试、不发任何第三方请求）。该文件与旧静态全景页共用，并已被 `scripts/pack-release.sh` 与 `scripts/check_panorama_static.py` 纳入发布完整性校验；**退役 `static/panorama/` 前必须先把 `marzipano.js` 迁到新位置并同步 `constants.ts::PANORAMA_RENDERER_URL`**。
 - **Cloudflare Turnstile**：`turnstile.ts` 在注册/找回密码/重发验证邮件/匿名反馈处按需注入脚本（未启用时零请求）；`turnstile_enabled` 与 sitekey 由 `/site-policy/` 下发，`useTurnstile` 负责渲染、重置与卸载组件。
 - **富文本**：Tiptap 3 编辑器（`RichTextEditor.tsx`），自定义原子节点 `rte/VideoNode.ts`（本地上传视频）与 `rte/IframeNode.ts`（仅 https iframe 嵌入，sandbox 属性与后端 `common/rich_text.py` 保持一致）；`utils/iframeEmbed.ts` 解析用户粘贴的 embed HTML（仅取首个 iframe 的 src/title，安全边界仍在服务端 sanitize）。工具栏扩展高亮 / 文字颜色 / 对齐 / 上下标 / 字数统计与选区气泡菜单、空行浮动菜单；新闻编辑页（`NewsFormPage`）为文档式布局，编辑内容自动保存至服务端草稿区（已发布稿存 `draft_*`，未发布稿直写正文；读写弃均须 `news.manage_news`），详情页提供「编辑 / 继续编辑」入口。
 - **文档处理**：`DocxPreview`（docx-preview 保真渲染 Word 原件）与 mammoth（Word 导入转富文本）。
@@ -297,8 +302,8 @@ Django admin 用 iframe 内嵌 SPA 页面（如审核对象预览 `/#/news/5?emb
 - **命名与组织**：页面 `pages/*Page.tsx`（PascalCase 组件）；共享组件 `components/`（按域分子目录）；API 模块导出 `xxxApi` 对象、端点路径带尾斜杠；类型集中在 `types/<domain>.ts`；纯逻辑放 `utils/` 或域目录（如 `examBoard/validate.ts`、`examBoard/prefs.ts` 独立于 React，便于单测与复用）。
 - **样式**：不用 CSS 框架；共享设计层 `cobalt.css` 提供 `.cs` reset 与 token，业务样式就近 import（组件专属 CSS 与组件同目录；跨页域样式放 `styles/`）。移动版样式类前缀 `m-`，移动页统一 `import "../styles/mobile.css"`。
 - **数据访问**：组件不直接 `fetch`，一律经 `api/` 模块；错误展示优先按 `err.apiError.kind` 分支 + `humanizeApiError`（登录弹窗内的登录专用英文串例外，走 `LOGIN_ERROR_ZH` 映射）。
-- **路由**：新页面在 `App.tsx` 声明并 lazily import；需要登录的包 `ProtectedRoute`；新增后端 API 前缀时同步在 `config/urls.py` 的 catch-all 排除清单登记（否则前端路径会被 SPA 捕获）。站内导航用 `navigate`/`NavLink`，跳 `/admin/` 或外链用 `window.location.href`。
-- **页面元信息**：各页在 `useEffect` 里设置 `document.title`（如「待办 · 传媒社」）；列表页统一 `Pagination` + `usePagedList`。
+- **路由**：新页面在 `App.tsx` 声明并 lazily import；需要登录的包 `ProtectedRoute`；新增后端 API 前缀时同步在 `config/urls.py` 的 catch-all 排除清单与 `webpack.config.js` 的 `devServer.proxy` 两处登记（否则前端路径会被 SPA 捕获 / 开发态 404）。站内导航用 `navigate`/`NavLink`/`Link`，跳 `/admin/` 或外链用 `window.location.href`。
+- **页面元信息**：各页在 `useEffect` 里设置 `document.title`（如「待办 · 传媒社」）；列表页优先 `Pagination` + `usePagedList`（数据量小、需一次拉全的列表在 api 模块里逐页拉全亦可）。
 - **组件外壳**：页面默认套 `AppShell`（详情页用 `PageChrome`，等价但在 `?embed=1` 时跳过）；确需独立布局的页面（任务表单、考试看板、移动版）自持布局根类，并在本文件「路由与页面」的布局例外中登记。
 - **兼容与类型**：`strict` TypeScript；跨模块的响应形状允许先 `as Promise<T>` 收口，再在 `types/` 中补精确类型；不新增未使用的依赖，第三方库的使用方式（懒加载、按需注入）以现有模块为范本。
 - **可访问性与语义**：交互元素用真实 `<button>/<a>`（`role`/`aria-*` 标注到位：导航 `aria-current`、弹窗 `aria-modal`、徽标计数 `aria-label`、提醒条与横幅 `role="status"`），图标一律内联 SVG（无图标库）；键盘可达性以 `:focus-visible` 焦点环兜底。
@@ -308,6 +313,7 @@ Django admin 用 iframe 内嵌 SPA 页面（如审核对象预览 `/#/news/5?emb
 
 - 前端测试：单元 / 组件测试用 Vitest + React Testing Library（测试文件在 `src/**/__tests__/*.test.ts(x)`，`cd frontend && npm test`）；浏览器 E2E 用 Playwright（chromium，用例在 `frontend/e2e/`，`cd frontend && npx playwright test` 自动起独立测试库与服务）。自动化关口另有构建断言脚本（`assert-*-dist.js`）与 TypeScript 编译；页面质量仍依赖逐页预览与人工验收。
 - `user.permissions` 与 `available_actions` 等能力投影是 **UI 预判**，不是安全边界：任何被隐藏的操作在后端仍会做权限校验（403 已由类型化错误统一接住）。
+- **全景浏览页依赖自托管渲染器**：Marzipano 走 `/static/panorama/marzipano.js`（非 npm 包），故「静态资源缺失 / 改名」会让全景页报「全景渲染器加载失败」；两者必须同步变更（见「静态资源与第三方库」）。全景瓦片走 `/media/panorama/...`，开发态由 `devServer.proxy` 的 `/media` 代理覆盖。
 - 移动版是独立布局站点：`/m` 页面与桌面页面**不共享**同一组件实现（共享的只有 `api/`、`types/`、`utils/`），桌面端的改动不会自动出现在手机版，反之亦然。
 - 路由采用 hash 模式（`/#/...`）的代价：URL 中可见 `#`、SEO 不友好、`?embed=1` 等查询参数必须写在 `#` 之后；换来的是 Django 端无需任何 rewrite 配置即可服务 SPA。
 - 开发态依赖 `devServer.proxy` 的前缀清单与后端 `config/urls.py` 双向保持同步；新增 API 前缀时两处都要登记。

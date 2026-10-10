@@ -1,10 +1,19 @@
 /**
  * 全局常量（前端单一来源）。
  *
- * 校园全景图静态页路径说明：
- * - 按钮固定指向 Django 静态目录下的全景页，与仓库 static/panorama/ 一一对应；
- * - 该目录已被 scripts/pack-release.sh 纳入 Release 打包清单（发布侧联动），
- *   改名 / 移动时必须同步修改 static/panorama/ 与 scripts/pack-release.sh；
- * - 全景页内资源（marzipano.js、pano_*.jpg）一律使用相对路径，勿改绝对路径。
+ * 校园全景图入口：
+ * - 浏览页已是站内 SPA 页 `/#/panorama`（服务端切片 + 多级瓦片，见 ADR-0022），
+ *   「关于 → 校园一览」下方固定按钮指向它；
+ * - 旧的静态页 `/static/panorama/index.html` 仍在仓库与发布包里（可直接访问，作为兜底），
+ *   但已不再挂入口；退役前必须先把 `marzipano.js` 迁到新位置并同步 PANORAMA_RENDERER_URL，
+ *   同时更新 scripts/pack-release.sh 与 scripts/check_panorama_static.py。
  */
-export const PANORAMA_PAGE_URL = "/static/panorama/index.html";
+export const PANORAMA_PAGE_URL = "/#/panorama";
+
+/**
+ * Marzipano 渲染器（自托管静态资源，勿改成 CDN）。
+ *
+ * 与旧静态全景页共用同一份文件，且被 scripts/pack-release.sh 与
+ * scripts/check_panorama_static.py 纳入发布完整性校验。
+ */
+export const PANORAMA_RENDERER_URL = "/static/panorama/marzipano.js";

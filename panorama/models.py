@@ -119,21 +119,23 @@ class Panorama(models.Model):
     def __str__(self):
         return self.title
 
-    # ── URL 助手（序列化器与前端模板共用）─────────────────────────────────
+    # ── URL 助手（序列化器与前端取片模板共用）────────────────────────────
     def asset_url(self, name: str) -> str | None:
         return default_storage.url(name) if name else None
 
     @property
     def preview_url(self) -> str | None:
+        """预览图（最小层整幅，~1024×512）：首屏兜底与分享图。"""
         return self.asset_url(self.preview_name)
 
     @property
     def thumb_url(self) -> str | None:
+        """缩略图（~640×320）：列表卡片用。"""
         return self.asset_url(self.thumb_name)
 
     @property
     def tile_url_template(self) -> str | None:
-        """Marzipano 式取片模板，``{z}`` / ``{y}`` / ``{x}`` 由前端替换。"""
+        """Marzipano 取片模板，``{z}`` / ``{y}`` / ``{x}`` 由前端替换。"""
         if not self.tile_dir:
             return None
         return f"{default_storage.url(self.tile_dir)}/{{z}}/{{y}}/{{x}}.jpg"

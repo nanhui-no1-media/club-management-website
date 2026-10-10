@@ -29,6 +29,7 @@ from common.policy import format_byte_cap, get_policy
 from .dji import (
     PanoramaMetadata,
     adapt_initial_view,
+    device_label,
     is_equirect_ratio,
     read_metadata,
 )
@@ -89,7 +90,7 @@ def _extract_panorama_from_archive(upload, tmpdir: str) -> tuple[str, str]:
     """从 zip 里挑出最合适的一张全景图并落盘到 ``tmpdir``。
 
     只读成员流、自己写到指定目标路径（**不用 ``extractall``**）→ 结构上不存在
-    zip-slip（路径穿越）的利用面；成员数与解压总量双重封顶。
+    zip-slip（路径穿越）的利用面；成员尺寸与解压总量双重封顶。
     """
     expansion_cap = get_policy().sync_upload_max_bytes * ARCHIVE_EXPANSION_FACTOR
     try:
@@ -228,7 +229,7 @@ def import_panorama(
             initial_pitch=pitch,
             initial_fov=fov,
             capture_heading=meta.heading_degrees,
-            device_model=(meta.model or meta.make)[:120],
+            device_model=device_label(meta)[:120],
             metadata=_metadata_payload(meta),
             created_by=user,
             status=Panorama.STATUS_PROCESSING,

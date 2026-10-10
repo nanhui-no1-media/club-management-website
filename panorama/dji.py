@@ -87,7 +87,9 @@ def parse_xmp(xmp: str) -> dict[str, str]:
     for prefix in ("GPano", "drone-dji"):
         for match in re.finditer(rf'{prefix}:([A-Za-z0-9_]+)\s*=\s*"([^"]*)"', xmp):
             found[f"{prefix}:{match.group(1)}"] = match.group(2).strip()
-        for match in re.finditer(rf"<{prefix}:([A-Za-z0-9_]+)>(.*?)</{prefix}:[A-Za-z0-9_]+>", xmp, re.S):
+        for match in re.finditer(
+            rf"<{prefix}:([A-Za-z0-9_]+)>(.*?)</{prefix}:[A-Za-z0-9_]+>", xmp, re.S,
+        ):
             found.setdefault(f"{prefix}:{match.group(1)}", match.group(2).strip())
     return found
 
@@ -97,6 +99,14 @@ def is_equirect_ratio(width: int, height: int) -> bool:
     if not width or not height:
         return False
     return abs(width / height - 2.0) <= EQUIRECT_TOLERANCE
+
+
+def device_label(meta: PanoramaMetadata) -> str:
+    """机型展示名：EXIF Model / Make 优先，回落 XMP 的 ``drone-dji:Model``。"""
+    for value in (meta.model, meta.make, meta.fields.get("drone-dji:Model", "")):
+        if value:
+            return value
+    return ""
 
 
 def _exif_strings(img: Image.Image) -> tuple[str, str]:

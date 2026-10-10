@@ -1,13 +1,12 @@
-from django.core.files.storage import default_storage
 from rest_framework import serializers
 
 from .models import Panorama
 
 
-def _asset_url(context, name: str) -> str | None:
-    if not name:
+def _absolute(context, url: str | None) -> str | None:
+    """相对 MEDIA_URL 的资产地址 → 绝对地址（无请求上下文时原样返回）。"""
+    if not url:
         return None
-    url = default_storage.url(name)
     request = context.get("request")
     return request.build_absolute_uri(url) if request else url
 
@@ -28,10 +27,10 @@ class PanoramaListSerializer(serializers.ModelSerializer):
         read_only_fields = fields
 
     def get_thumb_url(self, obj):
-        return _asset_url(self.context, obj.thumb_name)
+        return _absolute(self.context, obj.thumb_url)
 
     def get_preview_url(self, obj):
-        return _asset_url(self.context, obj.preview_name)
+        return _absolute(self.context, obj.preview_url)
 
 
 class PanoramaDetailSerializer(serializers.ModelSerializer):
@@ -66,13 +65,13 @@ class PanoramaDetailSerializer(serializers.ModelSerializer):
         ]
 
     def get_thumb_url(self, obj):
-        return _asset_url(self.context, obj.thumb_name)
+        return _absolute(self.context, obj.thumb_url)
 
     def get_preview_url(self, obj):
-        return _asset_url(self.context, obj.preview_name)
+        return _absolute(self.context, obj.preview_url)
 
     def get_tile_url_template(self, obj):
-        return _asset_url(self.context, obj.tile_dir and f"{obj.tile_dir}/{{z}}/{{y}}/{{x}}.jpg")
+        return _absolute(self.context, obj.tile_url_template)
 
     def get_source_url(self, obj):
         """原图（5~8MB）是受限读：只给持管理权限的人，避免公网白拿大文件。
@@ -88,4 +87,4 @@ class PanoramaDetailSerializer(serializers.ModelSerializer):
             and user.has_perm("panorama.manage_panoramas")
         ):
             return None
-        return _asset_url(self.context, obj.source.name)
+        return _absolute(self.context, obj.asset_url(obj.source.name))

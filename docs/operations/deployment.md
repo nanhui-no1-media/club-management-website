@@ -54,8 +54,19 @@ server {
     client_max_body_size 20M;
     server_tokens off;
 
-    location /static/ { alias /opt/club/staticfiles/; }
-    location /media/   { alias /opt/club/media/; }
+    # 静态文件缓存：哈希构建产物 → 1 年 immutable；其余与 /media/ → 7 天（详见「静态文件缓存」小节）
+    location ~ "^/static/(.+\.[0-9a-f]{20}\..+)$" {
+        alias /opt/club/staticfiles/$1;
+        add_header Cache-Control "public, max-age=31536000, immutable" always;
+    }
+    location /static/ {
+        alias /opt/club/staticfiles/;
+        expires 7d;
+    }
+    location /media/ {
+        alias /opt/club/media/;
+        expires 7d;
+    }
 
     error_page 502 /maintenance.html;
     location = /maintenance.html {
@@ -97,6 +108,16 @@ server {
 ```
 
 Django 在 `DJANGO_DEBUG=0` 时也会对 HTTPS 响应发同一条 HSTS（`SECURE_HSTS_SECONDS = 31536000`，`config/settings.py`）；重复同值无害。不要开 `includeSubDomains` / `preload`，除非确认该域名下没有仍走 HTTP 的子域。
+
+#### 静态文件缓存
+
+`/static/`、`/media/` 由 `install.sh` 模板写入三层缓存策略：
+
+- **哈希构建产物**（webpack `[contenthash]`，文件名含 20 位十六进制，如 `main.461273a96dc7c5b5be62.js`）→ `Cache-Control: public, max-age=31536000, immutable`。文件名与内容一一对应，长缓存安全。
+- **其余 `/static/`**（`admin/`、`surveyjs/`、`live2d/` 等无哈希文件）→ `expires 7d`：换版后最长 7 天陈旧窗口，过期由浏览器带 `If-None-Match` / `If-Modified-Since` 发起协商（304）。
+- **`/media/` 用户上传**（UUID / `user_<id>` 命名，URL 与内容一一对应）→ `expires 7d`。
+
+注意：带 `add_header` 的 `location`（哈希产物块）会**覆盖 server 级 `add_header` 的继承**——在 443 使用且 server 级配了 HSTS / Alt-Svc 时，需在该块内重复声明这两个头，否则哈希产物的响应会缺失它们。
 
 #### 启用 HTTP/3（可选，nginx 1.25+）
 

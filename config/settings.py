@@ -160,24 +160,63 @@ TEMPLATES = [
 WSGI_APPLICATION = 'config.wsgi.application'
 ASGI_APPLICATION = 'config.asgi.application'
 
-# v1: in-process only (ADR 0015). Do not raise ASGI workers above 1 until Redis.
-CHANNEL_LAYERS = {
-    "default": {
-        "BACKEND": "channels.layers.InMemoryChannelLayer",
-    },
-}
+# Redis（可选，ADR 0021）：配置 REDIS_URL 后，Django 缓存与 Channels 频道层
+# 都走 Redis —— 频道层跨进程扇出是多 ASGI worker（GUNICORN_WORKERS>1）的前置条件。
+REDIS_URL = os.environ.get("REDIS_URL", "").strip()
+
+if REDIS_URL:
+    CHANNEL_LAYERS = {
+        "default": {
+            "BACKEND": "channels_redis.core.RedisChannelLayer",
+            "CONFIG": {
+                "hosts": [REDIS_URL],
+                "prefix": "club",
+            },
+        }
+    }
+    CACHES = {
+        "default": {
+            "BACKEND": "django.core.cache.backends.redis.RedisCache",
+            "LOCATION": REDIS_URL,
+            "KEY_PREFIX": "club",
+        }
+    }
+else:
+    # 缺省保持 v1 行为：仅进程内内存层（ADR 0015）。未配 REDIS_URL 时不要提高 worker 数。
+    CHANNEL_LAYERS = {
+        "default": {
+            "BACKEND": "channels.layers.InMemoryChannelLayer",
+        }
+    }
 
 
 # Database
 # https://docs.djangoproject.com/en/6.0/ref/settings/#databases
 
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
+
+def _database_from_env():
+    """缺省 SQLite（本地/测试不变）；DB_ENGINE=postgresql 时走环境提供的 PG 连接项。"""
+    if os.environ.get("DB_ENGINE", "").strip().lower() in ("postgres", "postgresql"):
+        return {
+            "ENGINE": "django.db.backends.postgresql",
+            "NAME": os.environ.get("DB_NAME", "club"),
+            "USER": os.environ.get("DB_USER", "club"),
+            "PASSWORD": os.environ.get("DB_PASSWORD", ""),
+            "HOST": os.environ.get("DB_HOST", "127.0.0.1"),
+            "PORT": os.environ.get("DB_PORT", "5432"),
+            # 长连接复用（每 worker 至多一条空闲连接）+ 防陈旧连接健康检查。
+            "CONN_MAX_AGE": 60,
+            "CONN_HEALTH_CHECKS": True,
+            "OPTIONS": {"connect_timeout": 5},
+        }
+    return {
+        "ENGINE": "django.db.backends.sqlite3",
         # DJANGO_DB_FILE：E2E 用独立库（scripts/e2e-server.sh 设 run/e2e.sqlite3）；默认 db.sqlite3
-        'NAME': os.environ.get("DJANGO_DB_FILE") or BASE_DIR / 'db.sqlite3',
+        "NAME": os.environ.get("DJANGO_DB_FILE") or BASE_DIR / "db.sqlite3",
     }
-}
+
+
+DATABASES = {"default": _database_from_env()}
 
 
 # Password validation

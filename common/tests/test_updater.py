@@ -17,7 +17,7 @@ from unittest import mock
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from django.core.cache import cache
-from django.test import SimpleTestCase, TestCase
+from django.test import SimpleTestCase, TestCase, override_settings
 
 from common.models import SiteSettings
 from common.policy import SitePolicy, get_policy
@@ -38,6 +38,8 @@ from common.updater import (
     archive_sha,
     before_apply_cutoff,
     can_start_apply,
+    database_kind,
+    db_snapshot_name,
     decide_interrupt,
     download_release,
     fetch_release,
@@ -49,8 +51,12 @@ from common.updater import (
     parse_release_assets,
     parse_sha256_sidecar,
     pending_archive,
+    pg_dump_command,
+    pg_restore_command,
     poll_tick,
+    postgres_env,
     previous_local_archive,
+    prune_db_backups,
     prune_keep_newest,
     prune_releases,
     release_tag,
@@ -1144,3 +1150,124 @@ class DownloadLockTest(SimpleTestCase):
             any("waiting for another process" in line for line in cm.output)
         )
         self.assertEqual(dest.read_bytes(), self.payload)
+
+
+class PostgresSnapshotTest(SimpleTestCase):
+    """PostgreSQL 快照便道：database_kind 分流、pg_dump/psql 命令、失败回滚走 psql。"""
+
+    PG = {
+        "ENGINE": "django.db.backends.postgresql",
+        "NAME": "club",
+        "USER": "club",
+        "PASSWORD": "pw",
+        "HOST": "127.0.0.1",
+        "PORT": "5432",
+    }
+
+    def setUp(self):
+        super().setUp()
+        self._tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self._tmp.cleanup)
+        self.root = Path(self._tmp.name)
+        self.paths = UpdaterPaths.from_root(self.root)
+        self.paths.ensure_dirs()
+        self.paths.backups_dir.mkdir(parents=True, exist_ok=True)
+
+    def _tarball(self, sha: str, files: dict[str, bytes]) -> Path:
+        archive = self.paths.releases_dir / f"club-{sha}.tar.gz"
+        buf = io.BytesIO()
+        with tarfile.open(fileobj=buf, mode="w:gz") as tf:
+            for name, data in files.items():
+                info = tarfile.TarInfo(name=name)
+                info.size = len(data)
+                tf.addfile(info, io.BytesIO(data))
+        archive.write_bytes(buf.getvalue())
+        digest = hashlib.sha256(archive.read_bytes()).hexdigest()
+        Path(str(archive) + ".sha256").write_text(
+            f"{digest}  {archive.name}\n", encoding="utf-8"
+        )
+        return archive
+
+    def test_database_kind_and_snapshot_name(self):
+        with override_settings(DATABASES={"default": self.PG}):
+            self.assertEqual(database_kind(), "postgres")
+            self.assertEqual(
+                db_snapshot_name("20261010-000000"), "db-20261010-000000.pg.sql"
+            )
+        self.assertEqual(database_kind(), "sqlite")
+        self.assertEqual(db_snapshot_name("x"), "db-x.sqlite3")
+
+    def test_pg_commands_built_from_settings(self):
+        with (
+            override_settings(DATABASES={"default": self.PG}),
+            mock.patch(
+                "common.updater.find_pg_tool", side_effect=lambda n: f"/usr/bin/{n}"
+            ),
+        ):
+            dump = pg_dump_command(Path("/tmp/snap.sql"))
+            restore = pg_restore_command(Path("/tmp/snap.sql"))
+            env = postgres_env()
+        self.assertEqual(dump[0], "/usr/bin/pg_dump")
+        for flag in ("--clean", "--if-exists", "--no-owner", "--no-acl"):
+            self.assertIn(flag, dump)
+        self.assertEqual(dump[-2:], ["-f", "/tmp/snap.sql"])
+        self.assertEqual(restore[0], "/usr/bin/psql")
+        self.assertIn("ON_ERROR_STOP=1", restore)
+        self.assertEqual(restore[-2:], ["-f", "/tmp/snap.sql"])
+        self.assertEqual(env["PGPASSWORD"], "pw")
+
+    def test_apply_failure_on_postgres_restores_via_psql(self):
+        (self.root / "app.py").write_text("old\n", encoding="utf-8")
+        self.paths.applied_file.write_text("aaaaaaaaaaaa\n", encoding="utf-8")
+        v2 = self._tarball("bbbbbbbbbbbb", {"app.py": b"bad\n"})
+        snapshot = self.paths.backups_dir / "db-20260615-011500.pg.sql"
+        calls: list[list[str]] = []
+
+        def run(argv, *, check=True, env=None):
+            argv = [str(a) for a in argv]
+            calls.append(argv)
+            if Path(argv[0]).name == "pg_dump":
+                Path(argv[argv.index("-f") + 1]).write_text(
+                    "-- dump\n", encoding="utf-8"
+                )
+                return 0
+            if "migrate" in argv:
+                raise CommandError(argv, 1)
+            return 0
+
+        with (
+            override_settings(DATABASES={"default": self.PG}),
+            mock.patch(
+                "common.updater.find_pg_tool", side_effect=lambda n: f"/usr/bin/{n}"
+            ),
+        ):
+            with self.assertRaises(CommandError):
+                apply_release(
+                    self.paths,
+                    v2,
+                    _policy(),
+                    run=run,
+                    sleep=lambda _s: None,
+                    now_fn=lambda: _at(1, 15),
+                    drain_seconds=0,
+                )
+
+        self.assertTrue(snapshot.is_file())
+        psql_calls = [c for c in calls if Path(c[0]).name == "psql"]
+        self.assertEqual(len(psql_calls), 1)
+        self.assertIn(str(snapshot), psql_calls[0])
+        self.assertFalse(self.paths.maintenance_flag.exists())
+
+    def test_prune_db_backups_keeps_newest_across_kinds(self):
+        old = self.paths.backups_dir / "db-20261001-000000.sqlite3"
+        mid = self.paths.backups_dir / "db-20261005-000000.pg.sql"
+        new = self.paths.backups_dir / "db-20261010-000000.pg.sql"
+        for i, path in enumerate((old, mid, new)):
+            path.write_text("x", encoding="utf-8")
+            stamp = 1000 + i
+            os.utime(path, (stamp, stamp))
+        removed = prune_db_backups(self.paths, keep=2)
+        self.assertEqual([p.name for p in removed], [old.name])
+        self.assertFalse(old.exists())
+        self.assertTrue(mid.exists())
+        self.assertTrue(new.exists())

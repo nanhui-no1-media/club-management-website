@@ -7,7 +7,8 @@
 # 用 `exec` 让 gunicorn 顶替本 shell 成为 unit 主进程，sd_notify 才工作。
 # 更新进程是 gunicorn 的兄弟（fork 后 exec）：停 club 时 systemd 清整个 cgroup，
 # 不另写 club-updater.service。Apply 时对父进程 SIGHUP，避免 restart 把自己杀掉。
-# ADR 0015：InMemoryChannelLayer 不能跨进程扇出，worker 固定为 1。
+# ADR 0015/0021：InMemory 频道层不能跨进程扇出 → 未配 REDIS_URL 时保持 worker=1；
+# 配好 Redis 频道层后可用 GUNICORN_WORKERS 提高并发（默认仍 1）。
 set -euo pipefail
 
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -29,7 +30,7 @@ fi
 
 exec "$DIR/.venv/bin/gunicorn" \
   -k uvicorn.workers.UvicornWorker \
-  --workers 1 \
+  --workers "${GUNICORN_WORKERS:-1}" \
   --bind "unix:$DIR/run/gunicorn.sock" \
   --access-logfile - --error-logfile - \
   config.asgi:application

@@ -15,8 +15,8 @@
 | 依赖管理（后端） | uv（`pyproject.toml` + `uv.lock`） | 仓库根目录 |
 | 前端 | React 19 + TypeScript + Webpack 5 | `frontend/` |
 | 依赖管理（前端） | npm（`frontend/package-lock.json`） | `frontend/` |
-| 数据库 | SQLite（`db.sqlite3`） | `config/settings.py` |
-| 实时推送 | Django Channels + `InMemoryChannelLayer`（单进程） | `config/asgi.py` |
+| 数据库 | SQLite 缺省（`db.sqlite3`）；可选 PostgreSQL（`DB_ENGINE=postgresql`） | `config/settings.py` |
+| 实时推送 | Django Channels（缺省 `InMemoryChannelLayer`；配 `REDIS_URL` 用 Redis 频道层） | `config/asgi.py` |
 | 前端路由 | hash 路由（应用内 URL 形如 `/#/route`） | `frontend/src/App.tsx` |
 | 生产运行 | Nginx + Gunicorn `UvicornWorker`（**1 worker**，无 Redis） | `start.sh` |
 
@@ -219,7 +219,7 @@ club-management-website/
 
 - `uv` 的任意命令都可能重写 `uv.lock`（镜像 URL 噪音）；提交前用 `git checkout uv.lock` 还原，别把锁文件噪音混进改动。
 - 构建前端时若 webpack 报内存不足（`ERR_WORKER_OUT_OF_MEMORY`），用 `NODE_OPTIONS="--max-old-space-size=4096" npm run build` 重试——这是机器内存压力，不是代码问题。
-- **不要把生产 ASGI worker 调到 1 以上**：内存 channel layer 无法跨进程扇出（`docs/adr/0015-channels-without-redis.md`）。
+- **未配 Redis 时不要把生产 ASGI worker 调到 1 以上**：内存 channel layer 无法跨进程扇出（`docs/adr/0015-channels-without-redis.md`）；配置 `REDIS_URL` 后由 `GUNICORN_WORKERS` 控制（`docs/adr/0021-postgresql-redis-and-multiworker.md`）。
 - 生产升级走 GitHub Release + 更新守护进程，不要在服务器上 `git pull` 再手工构建。
 - `frontend/dist/`、`media/`、`private_media/`、`db.sqlite3`、`.env` 均不入库，全新 clone 缺这些是正常的。
 

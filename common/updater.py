@@ -6,6 +6,7 @@ cgroup). Tests import the helpers below and never hit GitHub.
 from __future__ import annotations
 
 import argparse
+import glob
 import hashlib
 import json
 import logging
@@ -608,14 +609,15 @@ def prune_db_backups(paths: UpdaterPaths, keep: int) -> list[Path]:
         return []
     snaps = [
         p
-        for p in paths.backups_dir.glob("db-*.sqlite3")
+        for pattern in ("db-*.sqlite3", "db-*.pg.sql")
+        for p in paths.backups_dir.glob(pattern)
         if p.is_file()
     ]
     return prune_keep_newest(snaps, keep)
 
 
 # ---------------------------------------------------------------------------
-# Unpack / rsync-equivalent / sqlite
+# Unpack / rsync-equivalent / database snapshots
 # ---------------------------------------------------------------------------
 
 
@@ -752,6 +754,116 @@ def restore_sqlite(snapshot: Path, db: Path) -> None:
     for suffix in ("-journal", "-wal", "-shm"):
         Path(str(db) + suffix).unlink(missing_ok=True)
     shutil.copy2(snapshot, db)
+
+
+# ---- PostgreSQL snapshots (used when DATABASES.default is PostgreSQL) ----
+
+
+def find_pg_tool(name: str) -> str | None:
+    """pg_dump / psql: PATH first, then PGDG's versioned dirs (/usr/pgsql-*/bin)."""
+    found = shutil.which(name)
+    if found:
+        return found
+    matches = glob.glob(f"/usr/pgsql-*/bin/{name}")
+    if not matches:
+        return None
+
+    def version_key(path: str) -> int:
+        matched = re.search(r"pgsql-(\d+)", path)
+        return int(matched.group(1)) if matched else 0
+
+    return sorted(matches, key=version_key)[-1]
+
+
+def database_kind() -> str:
+    """``"postgres"`` when the default DB is PostgreSQL, otherwise ``"sqlite"``."""
+    from django.conf import settings as dj_settings
+
+    engine = str((dj_settings.DATABASES.get("default") or {}).get("ENGINE", ""))
+    return "postgres" if "postgresql" in engine else "sqlite"
+
+
+def db_snapshot_name(stamp: str) -> str:
+    return f"db-{stamp}.pg.sql" if database_kind() == "postgres" else f"db-{stamp}.sqlite3"
+
+
+def _pg_db() -> dict:
+    from django.conf import settings as dj_settings
+
+    return dict(dj_settings.DATABASES.get("default") or {})
+
+
+def postgres_env() -> dict:
+    """Child env for psql/pg_dump: inherit process env + PGPASSWORD."""
+    env = dict(os.environ)
+    password = _pg_db().get("PASSWORD")
+    if password:
+        env["PGPASSWORD"] = str(password)
+    return env
+
+
+def pg_dump_command(dest: Path) -> list[str]:
+    """Plain-SQL dump: restorable with ``psql -f``; drops objects first (--clean)."""
+    db = _pg_db()
+    exe = find_pg_tool("pg_dump") or "pg_dump"
+    return [
+        exe,
+        "--clean",
+        "--if-exists",
+        "--no-owner",
+        "--no-acl",
+        "-h",
+        str(db.get("HOST") or "127.0.0.1"),
+        "-p",
+        str(db.get("PORT") or 5432),
+        "-U",
+        str(db.get("USER") or ""),
+        "-d",
+        str(db.get("NAME") or ""),
+        "-f",
+        str(dest),
+    ]
+
+
+def pg_restore_command(snapshot: Path) -> list[str]:
+    db = _pg_db()
+    exe = find_pg_tool("psql") or "psql"
+    return [
+        exe,
+        "-X",
+        "-v",
+        "ON_ERROR_STOP=1",
+        "-h",
+        str(db.get("HOST") or "127.0.0.1"),
+        "-p",
+        str(db.get("PORT") or 5432),
+        "-U",
+        str(db.get("USER") or ""),
+        "-d",
+        str(db.get("NAME") or ""),
+        "-f",
+        str(snapshot),
+    ]
+
+
+def backup_postgres(dest: Path, run: Runner) -> None:
+    """Snapshot PostgreSQL to a plain-SQL file before an apply (rollback source)."""
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    if find_pg_tool("pg_dump") is None:
+        raise ApplyError(
+            "pg_dump not found (PATH or /usr/pgsql-*/bin); "
+            "install the PostgreSQL client tools to enable update snapshots"
+        )
+    run(pg_dump_command(dest), env=postgres_env())
+    if not dest.is_file() or dest.stat().st_size == 0:
+        raise ApplyError(f"pg_dump produced an empty snapshot at {dest}")
+
+
+def restore_postgres(snapshot: Path, run: Runner) -> None:
+    """Restore a plain-SQL pg_dump snapshot created with --clean --if-exists."""
+    if find_pg_tool("psql") is None:
+        raise ApplyError("psql not found (PATH or /usr/pgsql-*/bin); cannot restore snapshot")
+    run(pg_restore_command(snapshot), env=postgres_env())
 
 
 def set_maintenance(paths: UpdaterPaths, on: bool, *, sha: str = "") -> None:
@@ -1415,9 +1527,11 @@ def make_runner(cwd: Path) -> Runner:
         if create_new:
             extra["creationflags"] = create_new
 
-    def run(argv: Sequence[str], *, check: bool = True) -> int:
+    def run(
+        argv: Sequence[str], *, check: bool = True, env: dict | None = None
+    ) -> int:
         log.info("+ %s", " ".join(str(a) for a in argv))
-        completed = subprocess.run([str(a) for a in argv], cwd=cwd, **extra)
+        completed = subprocess.run([str(a) for a in argv], cwd=cwd, env=env, **extra)
         if check and completed.returncode != 0:
             raise CommandError(argv, completed.returncode)
         return completed.returncode
@@ -1489,7 +1603,10 @@ def rollback_release(
         elif restore_files:
             log.error("no previous tarball; leaving files as they are")
         if db_snapshot is not None and db_snapshot.is_file():
-            restore_sqlite(db_snapshot, paths.db)
+            if db_snapshot.name.endswith(".pg.sql"):
+                restore_postgres(db_snapshot, run)
+            else:
+                restore_sqlite(db_snapshot, paths.db)
             log.info("restored DB snapshot %s", db_snapshot)
         uv = find_uv()
         run([uv, "sync", "--frozen"])
@@ -1543,7 +1660,7 @@ def apply_release(
         )
 
     stamp = now_fn().strftime("%Y%m%d-%H%M%S")
-    db_bak = paths.backups_dir / f"db-{stamp}.sqlite3"
+    db_bak = paths.backups_dir / db_snapshot_name(stamp)
     files_changed = False
     uv = find_uv()
     prev_sigint = _install_sigint()
@@ -1558,7 +1675,10 @@ def apply_release(
             sleep(drain_seconds)
             checkpoint("drain")
             update_progress(paths.maintenance_flag, "backup", sha=sha)
-            backup_sqlite(paths.db, db_bak)
+            if database_kind() == "postgres":
+                backup_postgres(db_bak, run)
+            else:
+                backup_sqlite(paths.db, db_bak)
             try:
                 prune_db_backups(paths, policy.update_db_backup_keep)
             except OSError:
@@ -1966,8 +2086,9 @@ def rollback_now(
 ) -> int:
     """Apply a previous GitHub release (files + migrate). Does not restore a DB snapshot.
 
-    Failed-apply rollback still restores the pre-apply SQLite copy. This path is an
-    intentional pin to an older runtime tree; site data stays as-is.
+    Failed-apply rollback still restores the pre-apply database snapshot (SQLite
+    file or PostgreSQL dump). This path is an intentional pin to an older runtime
+    tree; site data stays as-is.
     """
     from django.conf import settings as dj_settings
 

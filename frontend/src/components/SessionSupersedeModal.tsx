@@ -28,7 +28,7 @@ export default function SessionSupersedeModal({
     >
       <div
         style={{
-          background: "#fff",
+          background: "var(--bg)",
           borderRadius: 8,
           padding: 24,
           width: 380,
@@ -38,11 +38,11 @@ export default function SessionSupersedeModal({
         }}
       >
         <h3 style={{ margin: "0 0 12px", fontSize: 18 }}>账号在其他设备登录</h3>
-        <p style={{ color: "#374151", lineHeight: 1.6, margin: "0 0 8px" }}>
+        <p style={{ color: "var(--muted)", lineHeight: 1.6, margin: "0 0 8px" }}>
           您的账号{when ? `于 ${when} ` : ""}
           {where ? `在 ${where} ` : ""}登录，您已被迫下线。
         </p>
-        <p style={{ color: "#6b7280", fontSize: 13, margin: "0 0 16px" }}>
+        <p style={{ color: "var(--faint)", fontSize: 13, margin: "0 0 16px" }}>
           如非本人操作，请及时修改密码。
         </p>
         <button

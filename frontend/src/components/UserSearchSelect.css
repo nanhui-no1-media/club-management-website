@@ -8,7 +8,7 @@
   padding: 6px 10px;
   border: 1px solid var(--line, #e5e8ec);
   border-radius: 8px;
-  background: #fff;
+  background: var(--bg);
   cursor: text;
   transition: border-color 0.15s;
 }
@@ -55,7 +55,7 @@
   left: 0;
   right: 0;
   z-index: 40;
-  background: #fff;
+  background: var(--bg);
   border: 1px solid var(--line, #e5e8ec);
   border-radius: 8px;
   box-shadow: 0 6px 20px rgba(0, 0, 0, 0.12);

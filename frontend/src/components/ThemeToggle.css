@@ -1,0 +1,49 @@
+/* 顶栏主题切换：图标按钮 + 三选项弹层；个人中心下拉「外观」分组复用 .theme-dot */
+.theme-toggle-wrap { position: relative; }
+.theme-toggle-btn {
+  width: 38px; height: 38px; border-radius: var(--r-sm);
+  display: inline-flex; align-items: center; justify-content: center;
+  color: var(--ink-700);
+  transition: background var(--dur-1) var(--ease), color var(--dur-1) var(--ease);
+}
+.theme-toggle-btn:hover,
+.theme-toggle-btn[aria-expanded="true"] { background: var(--brand-50); color: var(--brand-700); }
+.theme-toggle-btn svg { width: 20px; height: 20px; }
+
+.theme-menu {
+  position: absolute; top: calc(100% + 8px); right: 0; width: 168px; z-index: 120;
+  background: var(--bg); border: 1px solid var(--line); border-radius: var(--r-lg);
+  box-shadow: var(--sh-3); padding: var(--s-2);
+  opacity: 0; visibility: hidden; transform: translateY(-6px);
+  transition: opacity var(--dur-2) var(--ease), transform var(--dur-2) var(--ease), visibility var(--dur-2);
+}
+.theme-menu.is-open { opacity: 1; visibility: visible; transform: translateY(0); }
+
+.theme-menu-item {
+  display: flex; align-items: center; gap: var(--s-3); width: 100%;
+  padding: 8px var(--s-3); border-radius: var(--r-sm);
+  font-size: 14px; color: var(--ink-700); font-weight: 500; text-align: left;
+  transition: background var(--dur-1) var(--ease), color var(--dur-1) var(--ease);
+}
+.theme-menu-item:hover { background: var(--brand-50); color: var(--brand-700); }
+
+.theme-dot {
+  width: 14px; height: 14px; border-radius: var(--r-pill);
+  border: 2px solid var(--line-2); display: inline-flex;
+  align-items: center; justify-content: center; flex-shrink: 0;
+}
+.theme-menu-item.is-current .theme-dot,
+.user-menu-item.theme-opt.is-current .theme-dot { border-color: var(--brand-600); }
+.theme-menu-item.is-current .theme-dot::after,
+.user-menu-item.theme-opt.is-current .theme-dot::after {
+  content: ""; width: 6px; height: 6px; border-radius: var(--r-pill); background: var(--brand-600);
+}
+.theme-menu-item.is-current,
+.user-menu-item.theme-opt.is-current { color: var(--brand-700); font-weight: 600; }
+
+/* 个人中心下拉里的外观分组 */
+.um-theme { padding: var(--s-1) 0; }
+.um-theme-label {
+  display: block; padding: var(--s-1) var(--s-3);
+  font-size: 12px; font-weight: 600; color: var(--faint); letter-spacing: .04em;
+}

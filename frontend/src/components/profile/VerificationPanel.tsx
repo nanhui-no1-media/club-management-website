@@ -128,7 +128,7 @@ function EmailCard({ card, onChanged, closed }: { card: ChannelCard; onChanged: 
     <CardShell card={card}>
       <p className="muted verify-card-hint">
         仅支持网易邮箱（163 / 126 / yeah.net）、QQ 邮箱、微软 Outlook、苹果 iCloud（含「隐藏我的邮件」）、
-        三大运营商（移动 / 联通 / 电信）与新浪邮箱。
+        三大运营商（移动 / 联通 / 电信）、新浪邮箱，以及中国高校院邮箱（.edu.cn / .edu.hk / .edu.mo / .edu.tw）。
       </p>
       <div className="verify-card-actions">
         {card.status === "pending" && (

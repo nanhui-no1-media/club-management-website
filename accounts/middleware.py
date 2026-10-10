@@ -7,6 +7,7 @@ from django.utils.html import escape
 from .models import UserSession
 from .throttles import login_blocked_response
 from .utils import record_user_session
+from .validity import enforce_account_validity
 
 
 def _is_admin_login_post(request):
@@ -148,3 +149,22 @@ class SingleSessionMiddleware:
                     status=401,
                 )
         return self.get_response(request)
+
+
+class ValidityEnforcementMiddleware:
+    """惰性执行身份有效期（ADR-0041，请求时兜底）。
+
+    在响应后执行：撤销过期管理员 / 停用超期未认证账号。放在 AuthenticationMiddleware 之后，
+    用已加载的 ``request.user`` 判定，只对「可能受影响」的用户做一次廉价检查（超管 /
+    近期注册用户直接跳过）。变更在下一次请求生效，不干扰当前响应与会话。
+    """
+
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        response = self.get_response(request)
+        user = getattr(request, "user", None)
+        if user is not None and user.is_authenticated:
+            enforce_account_validity(user)
+        return response

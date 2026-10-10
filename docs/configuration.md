@@ -39,6 +39,7 @@
 | 变量 | 读取位置 | 用途 |
 |---|---|---|
 | `DJANGO_TESTING` | `config/settings.py` | 置 `1` 时等价于「正在跑测试」，启用测试期提速设置（见下文 §2.8） |
+| `DJANGO_DB_FILE` | `config/settings.py` | 数据库文件路径覆盖；E2E 经 `scripts/e2e-server.sh` 置为独立库 `run/e2e.sqlite3`（每次重建），缺省 `db.sqlite3` |
 | `CLUB_SPAWN_UPDATER` | `start.sh` | 置 `0` 时不拉起更新守护进程（排障只起 web） |
 | `CLUB_UPDATER_SPAWNED` | `start.sh` / `common/updater.py` | 由 `start.sh` 置 `1`，标记更新进程由 web 拉起；apply 时据此对 Gunicorn 父进程发 SIGHUP 而不是 `systemctl restart` |
 | `SERVICE_NAME` | `common/updater.py` | systemd unit 名，默认 `club` |
@@ -105,7 +106,7 @@ news, reviews, tutorials, recruitment, attachments, rest_framework_tus
 
 | 设置 | 值 | 说明 |
 |---|---|---|
-| `DATABASES` | SQLite，`ENGINE = django.db.backends.sqlite3`，`NAME = BASE_DIR / "db.sqlite3"` | 单文件，已 gitignore；生产同样用 SQLite |
+| `DATABASES` | SQLite，`ENGINE = django.db.backends.sqlite3`，`NAME` 取环境变量 `DJANGO_DB_FILE`，缺省 `BASE_DIR / "db.sqlite3"` | 单文件，已 gitignore；生产同样用 SQLite |
 | `STATIC_URL` | `static/` | |
 | `STATIC_ROOT` | `BASE_DIR / "staticfiles"` | `collectstatic` 输出（生产由 nginx 服务） |
 | `STATICFILES_DIRS` | `[frontend/dist, static]` 中**存在**的目录 | `frontend/dist` 是 webpack 产物（gitignored）；目录缺失时自动跳过，保证全新 clone 跑测试不触发 `staticfiles.W004` |

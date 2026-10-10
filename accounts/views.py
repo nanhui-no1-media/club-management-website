@@ -48,6 +48,8 @@ logger = logging.getLogger(__name__)
 LOGIN_PROTECTION_SECONDS = 600  # 登录保护窗口：登录后 10 分钟内他方新会话登录被拒
 CONTENT_LIMIT = 15  # 个人中心每个内容 tab 返回的最近条数
 
+_EXPIRED_UNVERIFIED_MESSAGE = "本账户超过 60 日未认证，已被系统停用。请联系社长或服务器管理员处理。"
+
 
 def _verification_closed_response():
     return JsonResponse(
@@ -143,13 +145,16 @@ def login_view(request):
     action = enforce_account_validity(candidate)
     if action == "unverified_expired":
         return JsonResponse(
-            {
-                "error": "本账户超过 60 日未认证，已被系统停用。请联系社长或服务器管理员处理。",
-                "reason": "account_expired_unverified",
-            },
+            {"error": _EXPIRED_UNVERIFIED_MESSAGE, "reason": "account_expired_unverified"},
             status=403,
         )
     if not candidate.is_active:
+        # 已被 cron / 惰性执行停用的「超期未认证」账号（带 expiry_disabled_at 标记）也走专属提示。
+        if Profile.objects.filter(user=candidate, expiry_disabled_at__isnull=False).exists():
+            return JsonResponse(
+                {"error": _EXPIRED_UNVERIFIED_MESSAGE, "reason": "account_expired_unverified"},
+                status=403,
+            )
         return JsonResponse(
             {"error": "账号已停用，请联系信息组。", "reason": "account_disabled"},
             status=403,

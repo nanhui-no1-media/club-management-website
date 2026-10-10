@@ -137,8 +137,9 @@
     "permissions": {
       "can_manage_news": false, "can_manage_tasks": false, "can_assign_task": false, "can_manage_tags": false,
       "can_change_activity": false, "can_view_feedback": false, "can_handle_reports": false, "can_review_collections": false,
-      "can_edit_about": false, "can_manage_exam": false, "can_review_content": false, "can_review_identity": false,
-      "can_force_publish": false, "can_manage_comment_thread": false, "can_mute_user": false, "can_manage_announcement": false
+      "can_edit_about": false, "can_manage_panoramas": false, "can_manage_exam": false, "can_review_content": false,
+      "can_review_identity": false, "can_force_publish": false, "can_manage_comment_thread": false, "can_mute_user": false,
+      "can_manage_announcement": false
     }},
   "role": {"label": "用户", "variant": "user"},
   "profile": {"avatar": "/media/avatars/user_7.png", "nickname": "张三", "birthday": "2007-05-01",
@@ -158,10 +159,11 @@
 | can_assign_task | `tasks.assign_task` | can_manage_tags | `tasks.manage_tags` |
 | can_change_activity | `activities.manage_activity` | can_view_feedback | `reviews.read_feedback` |
 | can_handle_reports | `reviews.handle_report` | can_review_collections | `activities.review_collection` |
-| can_edit_about | `about.manage_aboutpage` | can_manage_exam | `exam_board.manage_exams` |
-| can_review_content | `reviews.moderate` | can_review_identity | `accounts.can_review_identity` |
-| can_force_publish | `reviews.force_publish` | can_manage_comment_thread | `messaging.manage_comment_thread` |
-| can_mute_user | `messaging.mute_user` | can_manage_announcement | `messaging.manage_announcement` |
+| can_edit_about | `about.manage_aboutpage` | can_manage_panoramas | `panorama.manage_panoramas` |
+| can_manage_exam | `exam_board.manage_exams` | can_review_content | `reviews.moderate` |
+| can_review_identity | `accounts.can_review_identity` | can_force_publish | `reviews.force_publish` |
+| can_manage_comment_thread | `messaging.manage_comment_thread` | can_mute_user | `messaging.mute_user` |
+| can_manage_announcement | `messaging.manage_announcement` |  |  |
 
 ### 更新资料 / 修改密码
 
@@ -359,8 +361,9 @@
   "viewer": {"is_owner": true, "is_admin": false},
   "permissions": {"can_manage_news": false, "can_manage_tasks": false, "can_assign_task": false, "can_manage_tags": false,
                   "can_change_activity": false, "can_view_feedback": false, "can_handle_reports": false, "can_review_collections": false,
-                  "can_edit_about": false, "can_manage_exam": false, "can_review_content": false, "can_review_identity": false,
-                  "can_force_publish": false, "can_manage_comment_thread": false, "can_mute_user": false, "can_manage_announcement": false},
+                  "can_edit_about": false, "can_manage_panoramas": false, "can_manage_exam": false, "can_review_content": false,
+                  "can_review_identity": false, "can_force_publish": false, "can_manage_comment_thread": false, "can_mute_user": false,
+                  "can_manage_announcement": false},
   "groups": ["信息组"]
 }
 ```

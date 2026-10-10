@@ -32,6 +32,7 @@
 | `tasks.manage_tags` | 管理任务标签 |
 | `tutorials.manage_tutorials` | 可管理教程 |
 | `about.manage_aboutpage` | 可编辑关于页 |
+| `panorama.manage_panoramas` | 可管理校园全景图 |
 | `exam_board.manage_exams` | 可管理考试看板 |
 | `reviews.moderate` | 可审核内容（发布审核） |
 | `reviews.force_publish` | 可免审发布 |
@@ -60,7 +61,7 @@
 ## 能力投影（前端契约）
 
 - 后端把 `has_perm` 派生为**语义化 `can_*` 布尔**，随 `GET /auth/me/` 返回；`permissions` 字段**恒列全量键（true / false 都在）**，前端从不接触 `news.manage_news` 这类原始代号。
-- 当前全量 16 键：
+- 当前全量 17 键：
 
 | 能力键 | 来源权限 |
 |---|---|
@@ -71,6 +72,7 @@
 | `can_change_activity` | `activities.manage_activity` |
 | `can_review_collections` | `activities.review_collection` |
 | `can_edit_about` | `about.manage_aboutpage` |
+| `can_manage_panoramas` | `panorama.manage_panoramas` |
 | `can_manage_exam` | `exam_board.manage_exams` |
 | `can_view_feedback` | `reviews.read_feedback` |
 | `can_handle_reports` | `reviews.handle_report` |

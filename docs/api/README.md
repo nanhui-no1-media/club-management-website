@@ -76,6 +76,7 @@
 
 - 普通上传：`multipart/form-data`，走附件模块接口（见 [attachments](attachments.md)）。
 - 大文件**断点续传**：TUS 协议，挂载在 `/uploads/`；大小上限由站点策略控制（库级兜底 500 MB）。
+- **全景图导入**是独立的同步上传通路（不受附件 / tus 体系管辖，服务端要做切片）：见 [panorama](panorama.md)。上限复用站点策略的「同步上传单文件上限」。
 
 ## 模块索引
 
@@ -91,6 +92,7 @@
 | 招聘与加入 | [recruitment](recruitment.md) | 招生公告与加入流程 |
 | 考试看板 | [exam-board](exam-board.md) | 批次 / 科目 / 误刊广播 |
 | 关于页 | [about](about.md) | 关于页区块内容 |
+| 校园全景图 | [panorama](panorama.md) | 全景图库、DJI 导入、瓦片取片 |
 | 附件与上传 | [attachments](attachments.md) | 统一附件模型 + TUS 断点续传 |
 | 公共 | [common](common.md) | 站点策略等公共接口 |
 

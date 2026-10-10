@@ -42,7 +42,7 @@
 - [ADR（架构决策记录）](adr/) —— 0001–0020，重要决策的来龙去脉
 - 领域术语与项目概览：[CONTEXT.md](../CONTEXT.md)
 - AI 协作流程约定：[docs/agents/](agents/)
-- GitHub Wiki（对外入口）：<https://github.com/nanhui-no1-media/club-management-website/wiki>
+- GitHub Wiki（对外入口）：<https://github.com/nhyzcms/club-management-website/wiki>
 
 ---
 

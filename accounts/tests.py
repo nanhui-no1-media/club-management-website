@@ -749,7 +749,11 @@ class CapabilityKeysContractTest(TestCase):
         )
 
     def test_capability_key_set_unchanged_no_survey_can(self):
-        """ADR 0011：调研不拆新 can_*；能力键集保持既有投影。"""
+        """能力键集是冻结契约：新增能力键必须同时改后端投影、前端标签表与本清单。
+
+        ADR 0011：调研不拆新 can_*（“survey” 字样的键永不出现）。
+        ADR 0022：校园全景图新增 can_manage_panoramas（⇐ `panorama.manage_panoramas`）。
+        """
         from .views import _capabilities
 
         expected = {
@@ -762,6 +766,7 @@ class CapabilityKeysContractTest(TestCase):
             "can_handle_reports",
             "can_review_collections",
             "can_edit_about",
+            "can_manage_panoramas",
             "can_manage_exam",
             "can_review_content",
             "can_review_identity",

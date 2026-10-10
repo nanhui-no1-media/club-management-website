@@ -11,6 +11,23 @@ def _absolute(context, url: str | None) -> str | None:
     return request.build_absolute_uri(url) if request else url
 
 
+def _absolute_raw(context, url: str | None) -> str | None:
+    """绝对化但**不做百分号转义**——取片模板里的 ``{z}`` / ``{y}`` / ``{x}`` 必须原样保留。
+
+    ``Request.build_absolute_uri`` 会对路径做 URL quoting（`{` → `%7B`），
+    Marzipano 却是按字面量替换占位符的：转义后一个都换不上，线上瓦片全 404。
+    故模板单独走这条“拼前缀”路径（已是绝对 URL 的原样返回）。
+    """
+    if not url:
+        return None
+    if url.startswith(("http://", "https://", "//")):
+        return url
+    request = context.get("request")
+    if not request:
+        return url
+    return request.build_absolute_uri("/").rstrip("/") + url
+
+
 class PanoramaListSerializer(serializers.ModelSerializer):
     """列表项：卡片所需（缩略图 + 状态 + 尺寸），不含取片模板等重字段。"""
 
@@ -71,7 +88,7 @@ class PanoramaDetailSerializer(serializers.ModelSerializer):
         return _absolute(self.context, obj.preview_url)
 
     def get_tile_url_template(self, obj):
-        return _absolute(self.context, obj.tile_url_template)
+        return _absolute_raw(self.context, obj.tile_url_template)
 
     def get_source_url(self, obj):
         """原图（5~8MB）是受限读：只给持管理权限的人，避免公网白拿大文件。

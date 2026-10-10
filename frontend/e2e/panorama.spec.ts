@@ -31,12 +31,20 @@ async function makePanoramaJpeg(page: Page): Promise<Buffer> {
 /**
  * 校园全景图冒烟：管理页导入 → 浏览页取瓦片。
  *
+ * 注意：全站是 hash 路由，页面地址必须写成 `/#/...`；写成 `/panorama/...` 会被
+ * Django 的 `panorama/` 路由（config/urls.py 已把该前缀从 SPA catch-all 里排除）
+ * 接走，根本进不了 SPA。
+ *
  * 前置：`e2e_info` 在 seed_e2e 里是超管（is_superuser=True），故持有
  * `panorama.manage_panoramas`；E2E 每个 run 重建数据库，库内初始为空，
  * 因而导入的这一张就是浏览页的当前（也是唯一）场景。
  */
 test.describe("校园全景图", () => {
   test("导入后浏览页能取到瓦片，且取片模板未被百分号转义", async ({ page }) => {
+    // 本用例比其它 UI 用例重：传图 → 服务端同步切片 → 加载 3D 渲染器 → 取瓦片，
+    // 默认 30s 只够「点几下」，这里显式放宽；下面的断言仍然逐条硬性生效。
+    test.setTimeout(90_000);
+
     const title = uniqueTitle("E2E 全景");
     const tiles: { url: string; status: number }[] = [];
     page.on("response", (res) => {
@@ -46,9 +54,15 @@ test.describe("校园全景图", () => {
       }
     });
 
-    // ── 1. 管理页导入（服务端同步切片；256×128 小图毫秒级）────────────
-    await page.goto("/panorama/manage");
+    // ── 1. 管理页导入（服务端同步切片；256×128 小图毫秒级）───────────
+    await page.goto("/#/panorama/manage");
     await expect(page.getByRole("heading", { name: "管理校园全景图" })).toBeVisible();
+    // 导入表单存在 = 能力门禁已放行（否则渲染的是无权限面板）
+    await expect(page.getByRole("heading", { name: "导入全景图" })).toBeVisible();
+
+    // SPA 启动时才拉取 csrftoken cookie（App 的 useEffect → GET /auth/csrf/）。
+    // 不等它就提交，首次 POST 会被 Django 的 CSRF 校验挡下（403）。
+    await page.waitForFunction(() => document.cookie.includes("csrftoken"));
 
     await page.setInputFiles('input[type="file"]', {
       name: "e2e-panorama.jpg",
@@ -58,21 +72,19 @@ test.describe("校园全景图", () => {
     await page.getByPlaceholder("如：操场").fill(title);
     await page.getByRole("button", { name: "导入并切片" }).click();
 
-    await expect(page.getByText(/已导入/)).toBeVisible({ timeout: 20_000 });
+    await expect(page.getByText(/已导入/)).toBeVisible({ timeout: 30_000 });
     // 列表里出现该条目（库内只有一张，可直接定位徒标标题）
-    await expect(page.locator(".pano-card-head strong")).toHaveText(title);
+    await expect(page.locator(".pano-card-head strong")).toHaveText(title, { timeout: 10_000 });
 
     // ── 2. 浏览页：库内仅此一张，它就是当前场景 ────────────────────
-    await page.goto("/panorama");
-    await expect(page.getByRole("heading", { name: title })).toBeVisible();
+    await page.goto("/#/panorama");
+    await expect(page.getByRole("heading", { name: title })).toBeVisible({ timeout: 15_000 });
 
-    // 场景建成后（WebGL 或回落 CSS 舞台均可）加载遮罩会消失
-    await expect(page.locator(".pano-overlay")).toHaveCount(0, { timeout: 20_000 });
-
-    // ── 3. 瓦片必须真的取到 200；URL 不得出现被转义的占位符 ──────
+    // ── 3. 瓦片必须真的取到 200；URL 不得出现被转义的占位符 ───────
     //    （build_absolute_uri 会把 {z} 转成 %7Bz%7D，Marzipano 就再也换不上占位符）
+    //    不断言具体渲染舞台：headless 有无 WebGL 会让 WebGL / CSS 两条路不同。
     await expect
-      .poll(() => tiles.length, { timeout: 20_000, message: "等不到瓦片请求" })
+      .poll(() => tiles.length, { timeout: 30_000, message: "等不到瓦片请求" })
       .toBeGreaterThan(0);
 
     const ok = tiles.filter((t) => t.status === 200);

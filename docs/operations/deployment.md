@@ -315,7 +315,7 @@ cat /opt/club/run/applied-release
 
 ### 6.4 发布侧（仓库维护者）
 
-`.github/workflows/ci.yml`：push 到 `main` 或任意 PR 触发 `backend`（`uv sync --frozen` + `manage.py test`）与 `frontend`（Node 22 + `npm ci && npm run build` + 断言 SurveyJS 产物）两个 job；仅 push 到 `main` 且前两者通过时跑 `release` job——`bash scripts/pack-release.sh` 打包成 `club-<sha>.tar.gz` + `.sha256`，连同 `install.sh` 一起创建 GitHub Release（标签 `club-<sha>`，附上一个 Release 以来的 changelog）。`pack-release.sh` 只收 Django 应用、`config/`、`manage.py`、`pyproject.toml`、`uv.lock`、`scripts/`、`start.sh`、`.env.example`、`static/maintenance.html` 与 `frontend/dist/`。
+`.github/workflows/ci.yml`：push 到 `main` 或任意 PR 触发 `backend`（`uv sync --frozen` + `manage.py test`）、`frontend`（Node 22 + `npm ci && npm run build` + 断言 SurveyJS 产物）、`frontend-test`（Vitest 单元 / 组件测试）与 `e2e`（Playwright 浏览器测试，复用 `frontend` 构建产物、自动起独立库与服务）四个 job；仅 push 到 `main` 且前四个通过时跑 `release` job——`bash scripts/pack-release.sh` 打包成 `club-<sha>.tar.gz` + `.sha256`，连同 `install.sh` 一起创建 GitHub Release（标签 `club-<sha>`，附上一个 Release 以来的 changelog）。`pack-release.sh` 只收 Django 应用、`config/`、`manage.py`、`pyproject.toml`、`uv.lock`、`scripts/`、`start.sh`、`.env.example`、`static/maintenance.html` 与 `frontend/dist/`。
 
 ## 7. 备份与恢复
 

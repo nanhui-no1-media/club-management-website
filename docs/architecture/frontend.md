@@ -75,6 +75,7 @@ frontend/
 │   ├── examBoard/         # 考试看板纯逻辑：prefs、audio、validate
 │   └── styles/            # 共享样式：cobalt 主题 + 各域页面样式
 ├── scripts/               # copy-surveyjs / assert-* 构建钩子
+├── e2e/                   # 浏览器 E2E 用例（Playwright；配置见 playwright.config.ts）
 ├── vendor/live2d/         # 看板娘静态资源（构建时拷贝，引用一律走 /static/live2d/）
 ├── template.html          # HtmlWebpackPlugin 模板
 ├── public/                # favicon.ico、wave-mark.svg
@@ -304,7 +305,7 @@ Django admin 用 iframe 内嵌 SPA 页面（如审核对象预览 `/#/news/5?emb
 
 ## 已知边界
 
-- 前端目前没有单元测试 / E2E 框架；自动化保障来自构建断言脚本（`assert-*-dist.js`）、TypeScript 编译与后端测试套件，页面质量依赖逐页预览与人工验收。
+- 前端测试：单元 / 组件测试用 Vitest + React Testing Library（测试文件在 `src/**/__tests__/*.test.ts(x)`，`cd frontend && npm test`）；浏览器 E2E 用 Playwright（chromium，用例在 `frontend/e2e/`，`cd frontend && npx playwright test` 自动起独立测试库与服务）。自动化关口另有构建断言脚本（`assert-*-dist.js`）与 TypeScript 编译；页面质量仍依赖逐页预览与人工验收。
 - `user.permissions` 与 `available_actions` 等能力投影是 **UI 预判**，不是安全边界：任何被隐藏的操作在后端仍会做权限校验（403 已由类型化错误统一接住）。
 - 移动版是独立布局站点：`/m` 页面与桌面页面**不共享**同一组件实现（共享的只有 `api/`、`types/`、`utils/`），桌面端的改动不会自动出现在手机版，反之亦然。
 - 路由采用 hash 模式（`/#/...`）的代价：URL 中可见 `#`、SEO 不友好、`?embed=1` 等查询参数必须写在 `#` 之后；换来的是 Django 端无需任何 rewrite 配置即可服务 SPA。

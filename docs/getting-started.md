@@ -106,7 +106,7 @@ uv run python manage.py check                           # 项目配置自检
 
 测试期有两项专门的提速设置（仅 `TESTING=True` 生效，零生产影响）：密码哈希切 MD5、邮件走内存后端。详见 [配置参考 §2.8](configuration.md)。
 
-浏览器 E2E（Playwright，chromium）覆盖「真实浏览器里的整栈冒烟」：登录 / 新闻发布（含封面上传）/ 编辑器插图 / 移动版跳转。
+浏览器 E2E（Playwright，chromium）是「真实浏览器里的整栈冒烟」，现已覆盖前端全部模块与关键路由：登录 / 新闻（含封面上传、编辑器插图）/ 活动 / 考试看板 / 问卷 / 审核台 / 消息 / 反馈 / 个人中心 / 移动版 / 未知路由重定向等。
 
 ```bash
 cd frontend
@@ -131,8 +131,10 @@ CI 配置见 `.github/workflows/ci.yml`，触发条件为 push 到 `main` 或任
 | `backend` | push 到 `main` / 任意 PR | `astral-sh/setup-uv`（python 3.14）→ `uv sync --frozen` → `uv run python manage.py test` |
 | `frontend` | 同上 | Node 22 → `npm ci && npm run build`（工作目录 `frontend`）→ 断言 `frontend/dist/surveyjs/survey.core.min.js` 存在 → 上传 `frontend-dist` artifact（保留 1 天） |
 | `frontend-test` | 同上 | Node 22 → `npm ci` → `npm test`（Vitest 单元 / 组件测试，工作目录 `frontend`） |
-| `e2e` | 同上 | 复用 `frontend-dist` artifact + `uv sync` → `npx playwright install --with-deps chromium` → `npx playwright test`（自动起独立库与服务）；失败上传 `playwright-report` |
+| `e2e` | 同上 | 复用 `frontend-dist` artifact + `uv sync` → `npx playwright install --with-deps chromium` → `npx playwright test`（自动起独立库与服务）；上传 `playwright-report`（含 trace 回放，保留 7 天） |
 | `release` | 仅 push 到 `main` 且前四个 job 通过 | `bash scripts/pack-release.sh` 打包 → 创建 GitHub Release（标签 `club-<sha>`，资产为 tarball + `.sha256` + `install.sh`，附上一个 Release 以来的 changelog） |
+
+各 job 会把关键结果（测试统计、构建摘要等）写入运行页的 Step Summary，便于快速浏览。
 
 本地跑 CI 的等价命令：
 

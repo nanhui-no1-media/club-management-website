@@ -132,6 +132,8 @@ uv run python manage.py check            # 检查项目配置
 
 cd frontend && npm run dev               # 启动前端开发服务器
 cd frontend && npm run build             # 构建生产资源
+cd frontend && npm test                  # 前端单元测试（Vitest）
+cd frontend && npx playwright test       # 浏览器 E2E（Playwright）
 
 sudo ./scripts/install.sh                # 一键部署生产环境
 ./start.sh                              # 启动生产服务

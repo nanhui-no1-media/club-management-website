@@ -96,7 +96,7 @@ class RegisterViewTest(TestCase):
         v = Verification.objects.get(user__username="newbie", channel=Verification.CHANNEL_EMAIL)
         self.assertEqual(v.identifier, "newbie@163.com")
 
-    # ---- 实数姓名 / 身份（必填）----
+    # ---- 真实姓名 / 身份（必填）----
     def test_real_name_identity_stored_on_profile(self):
         self.post(valid_payload(real_name="李四", identity="teacher"))
         user = User.objects.get(username="newbie")

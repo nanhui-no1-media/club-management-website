@@ -33,6 +33,8 @@ const NewsDetailPage = lazy(() => import("./pages/NewsDetailPage"));
 const NewsFormPage = lazy(() => import("./pages/NewsFormPage"));
 const ReviewQueuePage = lazy(() => import("./pages/ReviewQueuePage"));
 const AboutPage = lazy(() => import("./pages/AboutPage"));
+const PanoramaPage = lazy(() => import("./pages/PanoramaPage"));
+const PanoramaManagePage = lazy(() => import("./pages/PanoramaManagePage"));
 const ExamBoardPage = lazy(() => import("./pages/ExamBoardPage"));
 const SchedulePage = lazy(() => import("./pages/SchedulePage"));
 const TutorialListPage = lazy(() => import("./pages/TutorialListPage"));
@@ -109,6 +111,8 @@ export default function App() {
           <Route path="/news/:id/edit" element={<ProtectedRoute><NewsFormPage /></ProtectedRoute>} />
           <Route path="/reviews" element={<ProtectedRoute><ReviewQueuePage /></ProtectedRoute>} />
           <Route path="/about" element={<AboutPage />} />
+          <Route path="/panorama" element={<PanoramaPage />} />
+          <Route path="/panorama/manage" element={<ProtectedRoute><PanoramaManagePage /></ProtectedRoute>} />
           <Route path="/exam" element={<ExamBoardPage />} />
           <Route path="/schedule" element={<SchedulePage />} />
           <Route path="/tutorials" element={<TutorialListPage />} />

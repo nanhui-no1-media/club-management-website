@@ -8,6 +8,7 @@
   停用账号（is_active=False）+ 标记 expiry_disabled_at（登录时给专属提示）。
 
 幂等：已处理（is_active=False / is_staff=False）后重复调用为 no-op。
+``dry_run=True`` 只返回将执行的动作、不落库（供 management command --dry-run）。
 """
 from datetime import timedelta
 
@@ -43,11 +44,15 @@ def disable_user_for_expiry(user):
     return user
 
 
-def enforce_account_validity(user):
-    """执行一次身份有效期规则；返回动作名（admin_expired / unverified_expired）或 None。"""
+def enforce_account_validity(user, dry_run=False):
+    """执行一次身份有效期规则；返回动作名（admin_expired / unverified_expired）或 None。
+
+    ``dry_run=True`` 只判定不落库。超管豁免；已停用账号不再处理（避免误改「手动停用」
+    的提示语义）。
+    """
     if user is None or not getattr(user, "is_authenticated", False):
         return None
-    # 超管豁免；已停用账号不再处理（避免误改「手动停用」的提示语义）。
+    # 超管豁免；已停用账号不再处理。
     if user.is_superuser or not user.is_active:
         return None
     now = timezone.now()
@@ -61,8 +66,9 @@ def enforce_account_validity(user):
             expires_at__lte=now,
         ).exists()
         if expired:
-            user.is_staff = False
-            user.save(update_fields=["is_staff"])  # post_save → 删除委任通道
+            if not dry_run:
+                user.is_staff = False
+                user.save(update_fields=["is_staff"])  # post_save → 删除委任通道
             return "admin_expired"
         return None
 
@@ -70,6 +76,7 @@ def enforce_account_validity(user):
     if not has_ever_verified(user):
         profile = profile_of(user)
         if _registration_deadline(user, profile) <= now:
-            disable_user_for_expiry(user)
+            if not dry_run:
+                disable_user_for_expiry(user)
             return "unverified_expired"
     return None

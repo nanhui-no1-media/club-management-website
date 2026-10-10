@@ -175,28 +175,28 @@ def has_ever_verified(user):
 def is_verified(user):
     """账号「已验证」单一计算源（ADR-0006 + ADR-0041）。
 
-    超级管理员恒真（豁免过期）；其余 = 任一验证通道 ``approved`` 且未过期。
-    ``expires_at=null`` 视为永久（超管委任 / 后台显式延长）。过期通道不再算已验证，
-    账号回落为访客、需重新认证。
+    任一验证通道 ``approved`` 且未过期即真。``expires_at=null`` 视为永久（超管委任 /
+    后台显式延长）。过期通道不再算已验证，账号回落为访客、需重新认证。
 
-    纯计算：不读 ``is_staff`` / ``is_superuser``（后台委任走通道行，ADR-0013）。
-    权限轴逃生舱仍是 ``has_perm`` 对超管恒真（ADR-0005 决策 9），不在本函数。
+    纯计算：不读 ``is_staff`` / ``is_superuser``（ADR-0013）。超管 / 管理员经后台委任通道
+    计入（超管委任 expires_at=null 永久），不在本函数内特判标志位。权限轴逃生舱仍是
+    ``has_perm`` 对超管恒真（ADR-0005 决策 9），不在本函数。
     """
     if user is None or not getattr(user, "is_authenticated", False):
         return False
-    if user.is_superuser:
-        return True
     return user.verifications.filter(status=Verification.STATUS_APPROVED).filter(
         _unexpired_filter()
     ).exists()
 
 
 def admin_identity_valid(user):
-    """管理员身份是否有效（ADR-0041）：超管恒真；staff 看委任通道是否未过期。"""
+    """管理员身份是否有效（ADR-0041）：看委任通道是否未过期。
+
+    纯计算：不读 ``is_superuser``。超管委任通道 expires_at=null 永久，故恒有效；
+    staff 委任通道 = 委任日 + 管理员有效期，过期即无效（需重新授予）。
+    """
     if user is None or not getattr(user, "is_authenticated", False):
         return False
-    if user.is_superuser:
-        return True
     if not user.is_staff:
         return False
     return user.verifications.filter(

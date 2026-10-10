@@ -36,7 +36,7 @@
 2. 打开个人中心的**验证面板**（`GET /auth/verification/`）：数据驱动的通道状态卡，查状态、绑邮箱、提交证明都在这里。
 3. **走邮箱通道**：`POST /auth/verification/email/bind/` 绑定地址 → 收到验证邮件 → 点链接确认（`/auth/verify-email/`）→ 通道 approved，地址晋升为账号邮箱。地址后缀须在白名单内（含校园邮箱），否则面板弹窗提示换用其他邮箱。
 4. **走人工通道**：`POST /auth/verification/manual/submit/` 提交真实姓名 + 证明件 → 等待审核。
-5. **走认证码通道**：收到管理员发放的认证码后，在面板输入并兑换（`POST /auth/verification/authcode/reedem/`）→ **即时通过**，无人工环节。
+5. **走认证码通道**：收到管理员发放的认证码后，在面板输入并兑换（`POST /auth/verification/authcode/redeem/`）→ **即时通过**，无人工环节。
 6. **结果**：通过 → 徽章变「用户」，受限功能放开；驳回 → 邮件通知，可重新提交。
 
 > 没收到邮件可用 `/auth/resend-verification/` 重发；邮箱登录**只认已验证邮箱**，待验地址登不进。

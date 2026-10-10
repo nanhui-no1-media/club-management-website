@@ -287,8 +287,22 @@ server {
     client_max_body_size 20M;
     server_tokens off;
 
-    location /static/ { alias $DIR/staticfiles/; }
-    location /media/   { alias $DIR/media/; }
+    # 静态文件缓存：哈希构建产物（webpack [contenthash]，文件名含 20 位十六进制）→ 1 年 immutable；
+    # 其余 /static/（admin / surveyjs / live2d 等）与 /media/ 上传 → 7 天，过期走 ETag 协商（304）。
+    # 注意：location 级 add_header 会覆盖 server 级继承——本块进 443 后，若 server 级配了
+    # HSTS / Alt-Svc，需在该块内重复声明，否则哈希产物的响应会缺这些头。
+    location ~ "^/static/(.+\.[0-9a-f]{20}\..+)$" {
+        alias $DIR/staticfiles/\$1;
+        add_header Cache-Control "public, max-age=31536000, immutable" always;
+    }
+    location /static/ {
+        alias $DIR/staticfiles/;
+        expires 7d;
+    }
+    location /media/ {
+        alias $DIR/media/;
+        expires 7d;
+    }
 
     error_page 502 /maintenance.html;
     location = /maintenance.html {
@@ -312,6 +326,8 @@ server {
 }
 
 # --- 有证书后启用 HTTP/2：取消注释，并把上面的 location /static/ /media/、error_page 和 location / 拷进本 server。
+#     注意：/static/ 哈希产物块自带 add_header，会覆盖 server 级 add_header 继承；
+#     在 443 使用时若 server 级配了 HSTS / Alt-Svc，需在该块内重复声明。
 #     nginx 1.25.1+ 也可写成 listen 443 ssl; 然后 http2 on;
 #     HSTS 只写在 443（HTTP 响应里的 HSTS 浏览器会忽略）。
 # server {

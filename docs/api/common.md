@@ -127,7 +127,7 @@ curl -I http://localhost:8000/file/ClassIsland快速使用指南.pdf
 
 ### 自动更新守护进程
 
-`common/updater.py`（由 `start.sh` 随 Gunicorn 拉起，同一 systemd cgroup）按 `update_poll_interval_seconds` 轮询 GitHub Release（`UPDATE_GITHUB_REPO`，默认 `nanhui-no1-media/club-management-website`；token 走 `UPDATE_GITHUB_TOKEN`）。
+`common/updater.py`（由 `start.sh` 随 Gunicorn 拉起，同一 systemd cgroup）按 `update_poll_interval_seconds` 轮询 GitHub Release（`UPDATE_GITHUB_REPO`，默认 `nhyzcms/club-management-website`；token 走 `UPDATE_GITHUB_TOKEN`）。
 
 - **预取**：下载 `club-{sha}.tar.gz` + `.sha256` 到 `backups/releases/`，支持断点续传（HTTP Range）、校验失败重下、最多 8 次指数退避重试；未完成的 `.part` 绝不参与应用。
 - **应用条件**：`auto_update_enabled=true` 且处于应用窗口 `[update_window_start_hour, update_window_end_hour)`、距窗口结束还有 `update_apply_cutoff_minutes_before_end` 分钟以上；手动 `--apply-now` 跳过窗口判断。
@@ -145,7 +145,7 @@ curl -I http://localhost:8000/file/ClassIsland快速使用指南.pdf
 | 邮件 | `EMAIL_HOST_USER` / `EMAIL_HOST_PASSWORD` | 配了即切 163 SMTP（SSL 465），否则 dev 用 console 后端 |
 | 前端地址 | `FRONTEND_URL` | 用于拼验证邮件 / 重置链接（默认 `http://localhost:3000`） |
 | 媒体路径 | — | `MEDIA_ROOT`（公开）、`PRIVATE_MEDIA_ROOT`（身份证明，鉴权下载） |
-| 自动更新凭据 | `UPDATE_GITHUB_TOKEN`、`UPDATE_GITHUB_REPO` | token 为密钥；repo 默认 `nanhui-no1-media/club-management-website` |
+| 自动更新凭据 | `UPDATE_GITHUB_TOKEN`、`UPDATE_GITHUB_REPO` | token 为密钥；repo 默认 `nhyzcms/club-management-website` |
 
 ## 相关实现位置
 

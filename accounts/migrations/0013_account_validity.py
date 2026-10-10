@@ -3,6 +3,8 @@
 - ``Verification.expires_at``：通道认证有效期（认证通道 1 年、委任通道 2 年、超管永久）。
 - ``Profile.registration_deadline`` / ``expiry_disabled_at``：注册宽限覆盖 / 超期停用标记。
 - ``AuthCodeRedemption`` 唯一约束放宽为 (user, authcode)：认证过期后可重新兑换不同码。
+- ``Verification`` Meta 增 ``manage_validity`` 自定义权限（AlterModelOptions 记录，供 post_migrate 的
+  create_permissions 创建）。
 - 回填：存量 approved 认证通道 = 迁移时刻 + 1 年；管理员委任 = 迁移时刻 + 2 年；超管 = 永久。
 - 授予「社长」「信息组」accounts.manage_validity。
 """
@@ -72,6 +74,15 @@ class Migration(migrations.Migration):
             model_name="profile",
             name="expiry_disabled_at",
             field=models.DateTimeField(blank=True, null=True, verbose_name="因超期停用时间"),
+        ),
+        migrations.AlterModelOptions(
+            name="verification",
+            options={
+                "ordering": ["user", "channel"],
+                "permissions": [("manage_validity", "可以管理账号 / 认证有效期")],
+                "verbose_name": "验证通道",
+                "verbose_name_plural": "验证通道",
+            },
         ),
         migrations.RemoveConstraint(
             model_name="authcoderedemption",

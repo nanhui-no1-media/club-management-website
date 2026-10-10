@@ -37,7 +37,7 @@
   border-radius: 8px;
   font-size: 14px;
   outline: none;
-  background: #fff;
+  background: var(--bg);
   font-family: inherit;
   transition: border-color 0.15s;
 }
@@ -64,7 +64,7 @@
   padding: 4px 12px;
   border: 1px solid var(--border, #e5e8ec);
   border-radius: 16px;
-  background: #fff;
+  background: var(--bg);
   font-size: 13px;
   cursor: pointer;
   transition: all 0.15s;

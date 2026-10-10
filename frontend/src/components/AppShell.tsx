@@ -7,6 +7,8 @@ import { useSitePolicy } from "../api/sitePolicy";
 import { useEmbedMode } from "../embed";
 import { useLoginModal } from "./LoginModalProvider";
 import type { Banner } from "../types/messaging";
+import { THEME_OPTIONS, useTheme } from "../theme";
+import ThemeToggle from "./ThemeToggle";
 import "./AppShell.css";
 
 interface AppShellUser {
@@ -98,6 +100,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
   const { openLogin, authNonce, notifyAuthChange } = useLoginModal();
   const policy = useSitePolicy();
   const embed = useEmbedMode();
+  const { pref: themePref, setPref: setThemePref } = useTheme();
 
   useEffect(() => {
     api.me()
@@ -250,6 +253,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
             ))}
           </nav>
           <div className="topnav-actions">
+            <ThemeToggle />
             <div className="act-guest">
               <button className="btn btn-primary btn-sm" onClick={() => openLogin()}>登录</button>
             </div>
@@ -306,6 +310,23 @@ export default function AppShell({ children }: { children: ReactNode }) {
                         审核队列
                       </button>
                     )}
+                    <div className="um-sep" />
+                    <div className="um-theme">
+                      <span className="um-theme-label">外观</span>
+                      {THEME_OPTIONS.map((o) => (
+                        <button
+                          key={o.value}
+                          className={"user-menu-item theme-opt" + (themePref === o.value ? " is-current" : "")}
+                          type="button"
+                          role="menuitemradio"
+                          aria-checked={themePref === o.value}
+                          onClick={() => setThemePref(o.value)}
+                        >
+                          <span className="theme-dot" aria-hidden="true" />
+                          {o.label}
+                        </button>
+                      ))}
+                    </div>
                     <div className="um-sep" />
                     <button className="user-menu-item danger" type="button" onClick={logout}>退出登录</button>
                   </div>

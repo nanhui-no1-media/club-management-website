@@ -16,6 +16,7 @@ from django.utils import timezone
 
 from .identity_review import revoke_user_sessions
 from .models import (
+    Profile,
     Verification,
     has_ever_verified,
     profile_of,
@@ -37,8 +38,8 @@ def disable_user_for_expiry(user):
         user.is_active = False
         user.save(update_fields=["is_active"])
         revoke_user_sessions(user)
-    profile = profile_of(user)
-    if profile is not None and profile.expiry_disabled_at is None:
+    profile, _ = Profile.objects.get_or_create(user=user, defaults={"expiry_disabled_at": now})
+    if profile.expiry_disabled_at is None:
         profile.expiry_disabled_at = now
         profile.save(update_fields=["expiry_disabled_at"])
     return user

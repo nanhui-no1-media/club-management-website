@@ -29,6 +29,7 @@
 | `DB_ENGINE` 等 `DB_*` | 数据库切换与连接项：`DB_ENGINE=postgresql` 时用 PostgreSQL（`DB_NAME` / `DB_USER` / `DB_PASSWORD` / `DB_HOST` / `DB_PORT`） | 否 | 全部留空 = SQLite（缺省）；示例 `DB_ENGINE=postgresql`、`DB_NAME=club` |
 | `REDIS_URL` | 缓存 + Channels 频道层一并切到 Redis；多 worker 的前置条件 | 否 | 留空 = v1 行为（内存通道层、本地缓存、单 worker） |
 | `GUNICORN_WORKERS` | ASGI worker 进程数 | 否 | `1`；**只有配了 `REDIS_URL` 才允许 >1** |
+| `CLUB_UPDATER_PROXY` / `CLUB_UPDATER_NO_PROXY` | 更新器出站代理（只注入更新守护进程，加速 GitHub API/Release 下载） | 否 | 空 = 不注入；示例 `CLUB_UPDATER_PROXY=http://127.0.0.1:7891` |
 
 注意事项：
 

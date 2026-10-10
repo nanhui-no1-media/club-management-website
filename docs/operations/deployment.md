@@ -230,6 +230,7 @@ sudo systemctl restart club
 | `DB_ENGINE` / `DB_NAME` / `DB_USER` / `DB_PASSWORD` / `DB_HOST` / `DB_PORT` | 数据库切换与连接 | 留空 = SQLite；`DB_ENGINE=postgresql` 启用 PostgreSQL |
 | `REDIS_URL` | 缓存 + 频道层 | 留空 = v1；配置后可用 `GUNICORN_WORKERS` >1 |
 | `GUNICORN_WORKERS` | ASGI worker 数 | 默认 `1`；**须配 `REDIS_URL`** |
+| `CLUB_UPDATER_PROXY` | 更新器出站代理（仅注入守护进程，加速下载） | 留空 = 不注入；如 `http://127.0.0.1:7891` |
 
 逐项默认值、派生逻辑与相关测试见[配置参考](../configuration.md)。另有几个不在模板中、由代码读取的变量：`CLUB_SPAWN_UPDATER=0`（只起 web、不拉起更新守护进程，排障用）、`CLUB_UPDATER_SPAWNED`（由 `start.sh` 置 1）、`SERVICE_NAME`（更新器重载服务用，默认 `club`）。
 
@@ -465,6 +466,7 @@ SQLite 在并发写入时的典型问题：
 - 不在窗口内或距窗口结束不足截止分钟数 → 只下载不应用（`--apply-now` 可绕过）。
 - token 权限不足 / 仓库名不对 → 日志出现 `GitHub HTTP 401/403/404`；`UPDATE_GITHUB_REPO` 默认 `nhyzcms/club-management-website`。
 - 想确认当前版本：`cat run/applied-release`；想看已下载的包：`ls -l backups/releases/`。
+- 下载龟速 / 长期停在 `*.part`（直连 GitHub 慢）：给更新器单独配出站代理 `CLUB_UPDATER_PROXY`（见第 4 节），只影响更新器，不碰业务出站。
 
 ### 8.7 站点一直 503（维护页不撤）
 

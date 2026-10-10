@@ -84,7 +84,7 @@
 | update_window_end_hour | int | `3` | 应用窗口结束时刻（半开区间 `[开始, 结束)`；`开始 == 结束` 视为空窗口，起 > 止按跨夜处理） |
 | update_apply_cutoff_minutes_before_end | int | `30` | 窗口结束前 N 分钟起不再开始应用更新 |
 | update_release_keep | int | `3` | 保留发行包份数（超出按修改时间最旧清理，连同 `.sha256` 旁车） |
-| update_db_backup_keep | int | `5` | 保留数据库快照份数（`backups/db-*.sqlite3`） |
+| update_db_backup_keep | int | `5` | 保留数据库快照份数（`backups/db-*.sqlite3` / `db-*.pg.sql`） |
 | comments_enabled | bool | `true` | 评论区开关；关闭后前端不显示评论区且无法发新评论，已有评论保留。消费方：`messaging` |
 | comment_max_depth | int | `8` | 评论最大嵌套深度（1–32；超深拒绝，不改挂） |
 | dms_enabled | bool | `true` | 私信开关；关闭后不显示入口且无法发起 / 发送，已有会话保留。消费方：`messaging` |
@@ -100,7 +100,7 @@ curl http://localhost:8000/site-policy/
 curl -I http://localhost:8000/file/ClassIsland快速使用指南.pdf
 ```
 
-`/site-policy/` 无缓存头、无 ETag；前端只在应用启动时拉一次，运行期以本地快照为准（旋钮改动后需刷新页面或等待下次启动）。服务端快照缓存在进程内（`locmem` 等默认 cache 后端），**不跨进程共享**——多 worker 下 admin 改旋钮只在当前进程即时生效，其余 worker 待缓存失效 / 重启后一致。
+`/site-policy/` 无缓存头、无 ETag；前端只在应用启动时拉一次，运行期以本地快照为准（旋钮改动后需刷新页面或等待下次启动）。服务端快照缓存走 Django cache 后端（缺省 `locmem` 进程内、不跨进程共享；配 `REDIS_URL` 后为 Redis、跨进程共享——[ADR-0021](../adr/0021-postgresql-redis-and-multiworker.md)）——缺省后端下多 worker 时 admin 改旋钮只在当前进程即时生效，其余 worker 待缓存失效 / 重启后一致。
 
 ### `media/file/` 静态服务
 
@@ -131,7 +131,7 @@ curl -I http://localhost:8000/file/ClassIsland快速使用指南.pdf
 
 - **预取**：下载 `club-{sha}.tar.gz` + `.sha256` 到 `backups/releases/`，支持断点续传（HTTP Range）、校验失败重下、最多 8 次指数退避重试；未完成的 `.part` 绝不参与应用。
 - **应用条件**：`auto_update_enabled=true` 且处于应用窗口 `[update_window_start_hour, update_window_end_hour)`、距窗口结束还有 `update_apply_cutoff_minutes_before_end` 分钟以上；手动 `--apply-now` 跳过窗口判断。
-- **应用流程**：写维护旗标 → 备份 SQLite 快照（`backups/db-{时间戳}.sqlite3`，按 `update_db_backup_keep` 裁剪）→ 解包到临时 staging → 替换代码树（`.env` / `db.sqlite3` / `media` / `private_media` / `run` / `backups` / `.venv` 等排除在外）→ `uv sync --frozen` → `migrate` → `collectstatic` → 重载服务并健康检查；成功后记 `run/applied-release`、按 `update_release_keep` 裁剪发行包。
+- **应用流程**：写维护旗标 → 备份数据库快照（SQLite `backups/db-{时间戳}.sqlite3` / PostgreSQL `db-{时间戳}.pg.sql`，按 `update_db_backup_keep` 裁剪）→ 解包到临时 staging → 替换代码树（`.env` / `db.sqlite3` / `media` / `private_media` / `run` / `backups` / `.venv` 等排除在外）→ `uv sync --frozen` → `migrate` → `collectstatic` → 重载服务并健康检查；成功后记 `run/applied-release`、按 `update_release_keep` 裁剪发行包。
 - **失败处理**：任一步失败或窗口关闭 → 自动回滚（恢复上一发行包代码树 + 应用前的数据库快照 + 重载），回滚后服务不健康则保留维护页。
 - 手动回滚（`--rollback`，可指定 SHA / tag / 本地包）：只换代码树、**不动站点数据**——与应用失败时的回滚（含 DB 快照恢复）不同。
 
@@ -146,6 +146,7 @@ curl -I http://localhost:8000/file/ClassIsland快速使用指南.pdf
 | 前端地址 | `FRONTEND_URL` | 用于拼验证邮件 / 重置链接（默认 `http://localhost:3000`） |
 | 媒体路径 | — | `MEDIA_ROOT`（公开）、`PRIVATE_MEDIA_ROOT`（身份证明，鉴权下载） |
 | 自动更新凭据 | `UPDATE_GITHUB_TOKEN`、`UPDATE_GITHUB_REPO` | token 为密钥；repo 默认 `nhyzcms/club-management-website` |
+| 数据库 / Redis / worker | `DB_ENGINE` 等 `DB_*`、`REDIS_URL`、`GUNICORN_WORKERS` | 缺省 SQLite + 单 worker；可选 PostgreSQL + Redis 多 worker（[ADR-0021](../adr/0021-postgresql-redis-and-multiworker.md)） |
 
 ## 相关实现位置
 

@@ -26,6 +26,9 @@
 | `TURNSTILE_SECRET_KEY` | Turnstile 服务端密钥（保密，永不下发） | 否 | 空 |
 | `UPDATE_GITHUB_TOKEN` | GitHub PAT，需能读该仓库 Releases（自动更新守护进程用） | 生产必填 | 空 |
 | `UPDATE_GITHUB_REPO` | 更新来源仓库，`owner/repo` | 否 | `nhyzcms/club-management-website`（留空也回退到该值） |
+| `DB_ENGINE` 等 `DB_*` | 数据库切换与连接项：`DB_ENGINE=postgresql` 时用 PostgreSQL（`DB_NAME` / `DB_USER` / `DB_PASSWORD` / `DB_HOST` / `DB_PORT`） | 否 | 全部留空 = SQLite（缺省）；示例 `DB_ENGINE=postgresql`、`DB_NAME=club` |
+| `REDIS_URL` | 缓存 + Channels 频道层一并切到 Redis；多 worker 的前置条件 | 否 | 留空 = v1 行为（内存通道层、本地缓存、单 worker） |
+| `GUNICORN_WORKERS` | ASGI worker 进程数 | 否 | `1`；**只有配了 `REDIS_URL` 才允许 >1** |
 
 注意事项：
 
@@ -33,6 +36,7 @@
 - `SECRET_KEY` 生成：`python -c "import secrets;print(secrets.token_urlsafe()"`（模板注释给的命令；`scripts/install.sh` 用 `secrets.token_urlsafe(48)`）。
 - 模板里 `SECRET_KEY=` 是**空字符串**，而 `os.environ.get` 会把「键存在但为空」当成已设置——`config/settings.py::_secret_key()` 专门处理这种情况：空 / 纯空白视为未设置，DEBUG 下回退占位、生产直接报错。`config/tests.py::SettingsHygieneTest` 有对应断言。
 - `UPDATE_GITHUB_TOKEN` / `UPDATE_GITHUB_REPO` 也支持 `GITHUB_TOKEN` / `GITHUB_REPO` 作为 `install.sh` 的入参别名。
+- 新增的 `DB_*` / `REDIS_URL` / `GUNICORN_WORKERS` 遵守「缺省中性」：全部留空时行为与 v1 完全一致，开与关只动 `.env`（见 [ADR-0021](adr/0021-postgresql-redis-and-multiworker.md)）。
 
 ### 其他环境变量（不在 `.env.example`，代码中真实读取）
 
@@ -98,7 +102,8 @@ news, reviews, tutorials, recruitment, attachments, rest_framework_tus
 | 设置 | 值 | 说明 |
 |---|---|---|
 | `TEMPLATES[0]["DIRS"]` | `[BASE_DIR / "frontend" / "dist"]` | 直接渲染 webpack 产物 `index.html` |
-| `CHANNEL_LAYERS` | `InMemoryChannelLayer` | v1 单进程方案（ADR 0015）；**在引入 Redis 之前不要把 ASGI worker 调到 1 以上** |
+| `CHANNEL_LAYERS` | 缺省 `InMemoryChannelLayer`；配 `REDIS_URL` 后为 `channels_redis`（前缀 `club`） | 未配 Redis 时保持单进程（ADR 0015）；配好 Redis 频道层后可用 `GUNICORN_WORKERS` 提高（ADR 0021） |
+| `CACHES` | 配 `REDIS_URL` 时为 `RedisCache`（前缀 `club`）；否则 Django 默认本地内存缓存 | 站点策略 / 限流缓存跨 worker 一致性的前置条件 |
 
 `config/asgi.py` 用 `ProtocolTypeRouter` 分派：`http` / `lifespan` → Django ASGI 应用，`websocket` → `AllowedHostsOriginValidator(AuthMiddlewareStack(URLRouter(...)))`。WebSocket 路由为 `messaging` + `exam_board` 两组拼接（`/ws/messaging/` 需登录，`/ws/exam-board/` 匿名可连）。
 
@@ -106,7 +111,7 @@ news, reviews, tutorials, recruitment, attachments, rest_framework_tus
 
 | 设置 | 值 | 说明 |
 |---|---|---|
-| `DATABASES` | SQLite，`ENGINE = django.db.backends.sqlite3`，`NAME` 取环境变量 `DJANGO_DB_FILE`，缺省 `BASE_DIR / "db.sqlite3"` | 单文件，已 gitignore；生产同样用 SQLite |
+| `DATABASES` | 缺省 SQLite（`NAME` 取 `DJANGO_DB_FILE`，缺省 `BASE_DIR / "db.sqlite3"`）；`DB_ENGINE=postgresql` 时切 PostgreSQL（`DB_*` 连接项、`CONN_MAX_AGE=60` + 健康检查） | 缺省单文件已 gitignore；PG 为生产可选升级（ADR 0021），迁移见 deployment.md §7 |
 | `STATIC_URL` | `static/` | |
 | `STATIC_ROOT` | `BASE_DIR / "staticfiles"` | `collectstatic` 输出（生产由 nginx 服务） |
 | `STATICFILES_DIRS` | `[frontend/dist, static]` 中**存在**的目录 | `frontend/dist` 是 webpack 产物（gitignored）；目录缺失时自动跳过，保证全新 clone 跑测试不触发 `staticfiles.W004` |
@@ -235,6 +240,7 @@ CI 另外断言 `frontend/dist/surveyjs/survey.core.min.js` 存在（`.github/wo
 | 想改什么 | 改哪里 | 生效方式 |
 |---|---|---|
 | 密钥 / 域名 / SMTP / Turnstile / 更新 token | `.env` | 重启进程（生产 `sudo systemctl restart club`） |
+| 数据库 / Redis / worker 数 | `.env`（`DB_*` / `REDIS_URL` / `GUNICORN_WORKERS`） | 重启进程；数据迁移与回滚见 deployment.md |
 | 限流额度、上传上限、评论 / 私信开关、更新窗口 | Django admin「站点策略」 | 即时（`save()` 失效缓存） |
 | 全站维护拦截 | `uv run python manage.py maintenance on --message "..."` | 即时（文件旗标，无需重启） |
 | CORS 来源、DRF 全局配置、中间件、分页大小 | `config/settings.py` | 改代码 + 重启 |

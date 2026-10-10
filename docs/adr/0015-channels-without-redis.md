@@ -2,6 +2,8 @@
 
 日期：2026-08-27 · 与 jinha 协作
 
+> 修订（2026-10-10）：生产已引入 Redis 频道层并允许多 ASGI worker（[ADR-0021](0021-postgresql-redis-and-multiworker.md)）；本 ADR 的「单进程 / InMemory」约束仅适用于**未配置 `REDIS_URL`** 的部署。
+
 生产今日是 **Gunicorn WSGI、2 worker**。消息重置需要把**私信 / 通知 / 当前打开的评论区**推到已登录客户端。SQLite 本就怕多写者；Channels 的 `InMemoryChannelLayer` 也不能跨进程扇出。v1 的约束是：**一个 ASGI 进程，进程内内存层，WebSocket 只推不聊。**
 
 这与 [`docs/specs/2026-07-11-single-session-kickout-design.md`](../specs/2026-07-11-single-session-kickout-design.md) **不冲突**。该文否掉 WebSocket，是因为**仅为挤号**引入 Channels + Redis + ASGI 过重，改走 HTTP 中间件 + 401 + 60s 轮询。本 ADR 为消息推送引入 Channels，**挤号仍走那条 HTTP 路径**，不把强制下线挂上本 socket。

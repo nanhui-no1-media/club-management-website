@@ -2,7 +2,7 @@
 
 > 前端内部结构见 [frontend.md](frontend.md)；环境搭建见 [快速开始](../getting-started.md)；生产部署见 [部署与运维](../operations/deployment.md)。
 
-南汇一中传媒社的社团管理系统是一个**单体 Django 应用**：同一进程对外提供 REST API（Django REST Framework）、Django Admin、WebSocket 实时推送（Django Channels）以及 React SPA 的托管与静态资源。生产形态为 Nginx + Gunicorn（ASGI / UvicornWorker，**单 worker**）+ SQLite，不依赖 Redis（[ADR-0015](../adr/0015-channels-without-redis.md)）。
+南汇一中传媒社的社团管理系统是一个**单体 Django 应用**：同一进程对外提供 REST API（Django REST Framework）、Django Admin、WebSocket 实时推送（Django Channels）以及 React SPA 的托管与静态资源。生产形态为 Nginx + Gunicorn（ASGI / UvicornWorker）+ systemd：缺省单 worker + SQLite（[ADR-0015](../adr/0015-channels-without-redis.md)），可选 PostgreSQL + Redis 频道层并提高 worker 数（[ADR-0021](../adr/0021-postgresql-redis-and-multiworker.md)）。
 
 ## 技术栈
 
@@ -10,8 +10,8 @@
 |---|---|
 | 语言 / 框架 | Python 3.14 · Django 6.0 |
 | API | Django REST Framework（会话认证） |
-| 实时 | Django Channels（InMemory 通道层，单 worker） |
-| 数据库 | SQLite（`db.sqlite3`） |
+| 实时 | Django Channels（缺省 InMemory 通道层；可选 Redis 频道层 + 多 worker） |
+| 数据库 | SQLite 缺省（`db.sqlite3`）；可选 PostgreSQL |
 | 前端 | React 19 · TypeScript · Webpack 5；产物 `frontend/dist/` 由 Django 托管 |
 | 部署 | Nginx（一层反向代理）· Gunicorn ASGI · systemd |
 | 外部集成 | SurveyJS（问卷）· Cloudflare Turnstile（人机验证）· Tiptap（富文本）等 |
@@ -21,7 +21,7 @@
 ```
 浏览器 ──Nginx──▶ Gunicorn(ASGI) ──▶ Django
    ├─ HTTP：中间件链 → URLconf → 视图（DRF ViewSet / 函数视图）
-   │        → 权限与可见性判定 → ORM / SQLite → JSON 响应
+   │        → 权限与可见性判定 → ORM（SQLite / PostgreSQL）→ JSON 响应
    ├─ WebSocket：AuthMiddlewareStack → consumer（messaging / exam_board）
    └─ 其它路径：回落到 index.html（前端 HashRouter 自行路由）
 ```
@@ -50,7 +50,7 @@
 
 ### WebSocket 路由
 
-`/ws/messaging/`（登录：评论 / 私信 / 通知）与 `/ws/exam-board/`（公开：误刊广播）经 `AuthMiddlewareStack` + Origin 校验接入（见 `config/asgi.py`）。InMemory 通道层意味着**实时推送只在本进程内有效**——横向扩容前必须先引入 Redis。
+`/ws/messaging/`（登录：评论 / 私信 / 通知）与 `/ws/exam-board/`（公开：误刊广播）经 `AuthMiddlewareStack` + Origin 校验接入（见 `config/asgi.py`）。缺省 InMemory 通道层意味着**实时推送只在本进程内有效**——提高 worker 数前必须先引入 Redis（[ADR-0021](../adr/0021-postgresql-redis-and-multiworker.md)）。
 
 ## 模块地图（Django Apps）
 
@@ -103,14 +103,14 @@
 
 ## 数据与存储
 
-- SQLite（`db.sqlite3`）：业务数据与会话均存于此。
+- 数据库：缺省 SQLite（`db.sqlite3`），可切 PostgreSQL（`DB_ENGINE=postgresql`，[ADR-0021](../adr/0021-postgresql-redis-and-multiworker.md)）；业务数据与会话均存于此。
 - 静态资源：`frontend/dist/`（webpack 产物，构建时生成）与 `static/`，经 `collectstatic` 汇总到 `staticfiles/`。
 
 ## 部署形态
 
-Nginx（一层代理）→ Gunicorn ASGI 单 worker，systemd 托管；更新与备份流程见 [部署与运维](../operations/deployment.md)。
+Nginx（一层代理）→ Gunicorn ASGI（worker 数由 `GUNICORN_WORKERS` 控制，缺省 1）· systemd 托管；更新与备份流程见 [部署与运维](../operations/deployment.md)。
 
 ## 设计记录
 
-- 全部架构决策记录见 [docs/adr/](../adr/)（0001–0020）。
+- 全部架构决策记录见 [docs/adr/](../adr/)（0001–0021）。
 - 领域术语与项目概览：仓库根目录 [CONTEXT.md](../../CONTEXT.md)。

@@ -1,8 +1,8 @@
 # 部署与运维指南
 
-生产环境是 **Nginx + Gunicorn（ASGI / `UvicornWorker`，固定 1 worker）+ systemd**，Django 直接托管 React 构建产物，数据库为 SQLite 单文件。本文覆盖安装、更新、回滚、备份与排障。
+生产环境是 **Nginx + Gunicorn（ASGI / `UvicornWorker`）+ systemd**，Django 直接托管 React 构建产物。数据库缺省 SQLite 单文件，可切 PostgreSQL；ASGI worker 缺省 1，配置 Redis 频道层后可由 `GUNICORN_WORKERS` 提高（[ADR-0021](../adr/0021-postgresql-redis-and-multiworker.md)）。本文覆盖安装、更新、回滚、备份与排障。
 
-> 相关：[ADR-0015](../adr/0015-channels-without-redis.md)（单 worker · 无 Redis · 内存通道层）、[快速开始](../getting-started.md)（本地开发）、[配置参考](../configuration.md)（环境变量与站点策略逐项说明）
+> 相关：[ADR-0015](../adr/0015-channels-without-redis.md)（缺省单 worker · 内存通道层）、[ADR-0021](../adr/0021-postgresql-redis-and-multiworker.md)（PostgreSQL / Redis / 多 worker）、[快速开始](../getting-started.md)（本地开发）、[配置参考](../configuration.md)（环境变量与站点策略逐项说明）
 
 ## 1. 运行架构
 
@@ -21,8 +21,8 @@ Nginx
 
 关键事实（全部可在仓库中核对）：
 
-- `start.sh` 用 `exec` 启动 `gunicorn -k uvicorn.workers.UvicornWorker --workers 1 --bind unix:$DIR/run/gunicorn.sock config.asgi:application`，并以兄弟进程身份拉起 `scripts/updater.py`。
-- **worker 固定为 1**：`CHANNEL_LAYERS` 是 `InMemoryChannelLayer`，内存通道层不能跨进程扇出；SQLite 也怕多写者。未引入 Redis 之前不要调大 `--workers`（[ADR-0015](../adr/0015-channels-without-redis.md)）。
+- `start.sh` 用 `exec` 启动 `gunicorn -k uvicorn.workers.UvicornWorker --workers "${GUNICORN_WORKERS:-1}" --bind unix:$DIR/run/gunicorn.sock config.asgi:application`，并以兄弟进程身份拉起 `scripts/updater.py`。
+- **worker 缺省为 1**：`CHANNEL_LAYERS` 缺省 `InMemoryChannelLayer`，不能跨进程扇出（[ADR-0015](../adr/0015-channels-without-redis.md)）。配置 `REDIS_URL`（Redis 频道层，[ADR-0021](../adr/0021-postgresql-redis-and-multiworker.md)）后可用 `GUNICORN_WORKERS` 提高；SQLite 怕多写者，生产多 worker 建议同时切 PostgreSQL。
 - WebSocket 两条：`/ws/messaging/`（须登录，推私信 / 通知 / 当前评论区）与 `/ws/exam-board/`（匿名可连，教室看板课表与题目误刊广播，[ADR-0018](../adr/0018-exam-board-batch-and-public-ws.md)）。
 - 前端 `frontend/dist/` 由 Django 的 `TEMPLATES["DIRS"]` 直接渲染，`STATICFILES_DIRS` 收集其静态资源；**没有独立的前端服务**。
 - 更新守护进程与 Gunicorn 同生命周期：停 `club` 时 systemd 清整个 cgroup，因此没有单独的 `club-updater.service`（`scripts/install.sh` 会停用并移除历史遗留的该 unit）。
@@ -98,6 +98,26 @@ server {
 
 Django 在 `DJANGO_DEBUG=0` 时也会对 HTTPS 响应发同一条 HSTS（`SECURE_HSTS_SECONDS = 31536000`，`config/settings.py`）；重复同值无害。不要开 `includeSubDomains` / `preload`，除非确认该域名下没有仍走 HTTP 的子域。
 
+#### 启用 HTTP/3（可选，nginx 1.25+）
+
+QUIC / HTTP/3 需要 nginx ≥ 1.25 且构建参数含 `--with-http_v3_module`（安装后 `nginx -V 2>&1 | grep http_v3` 现场核验；发行版自带的老版 nginx 通常没有）。要点：
+
+- 同一 `server` 块保留 `listen 443 ssl;`，新增 `listen 443 quic reuseport;`（`reuseport` 全站只写一处），`ssl_protocols` 含 `TLSv1.3`。
+- 下发 `Alt-Svc: h3=":443"`（部分版本会自动下发，重复同值无害）。
+- **云安全组 / 防火墙放行 UDP 443**，否则客户端会静默回退 HTTP/2。
+- 验证：浏览器 DevTools 的协议列，或 `curl --http3-only https://<域名>/`（本地 curl 需带 HTTP/3 支持）。
+
+```nginx
+server {
+    listen 443 ssl;
+    listen 443 quic reuseport;
+    http2 on;                      # nginx 1.25+ 推荐的写法（替代 listen ... http2）
+    server_name club.example.com;
+    # …证书与其它指令同上（见上一节）
+    add_header Alt-Svc 'h3=":443"; ma=86400' always;
+}
+```
+
 ## 2. 环境要求
 
 | 组件 | 要求 | 说明 |
@@ -106,7 +126,8 @@ Django 在 `DJANGO_DEBUG=0` 时也会对 HTTPS 响应发同一条 HSTS（`SECURE
 | Python | 3.14 | `pyproject.toml` 声明 `requires-python = ">=3.14"`；`uv sync` 会自行准备解释器 |
 | uv | 0.11+ | `install.sh` 在服务用户下自动安装（`astral.sh/uv/install.sh`） |
 | Node.js | 22（仅就地构建前端时需要） | Release 包已含 `frontend/dist`，独立安装不需要 Node |
-| 数据库 | SQLite（`db.sqlite3`） | 开发与生产同款；无外部数据库依赖 |
+| 数据库 | 缺省 SQLite（`db.sqlite3`）；可选 PostgreSQL 17+ | PostgreSQL 由 `DB_ENGINE=postgresql` 启用（只监听 `127.0.0.1`）；留空即 v1 行为（[ADR-0021](../adr/0021-postgresql-redis-and-multiworker.md)） |
+| 缓存 / 频道层 | 缺省无；可选 Redis 6+ | 配 `REDIS_URL` 同时供缓存与 Channels 跨进程扇出；多 worker 前置条件 |
 | 其他 | nginx、curl、tar、gzip、git、sqlite3、编译链 | 由 `install.sh` 按包管理器安装；`--skip-deps` 可跳过 |
 | 磁盘 | 预留 `backups/` 空间 | 发行包（默认保留 3 份）+ DB 快照（默认保留 5 份）+ media |
 
@@ -206,6 +227,9 @@ sudo systemctl restart club
 | `TURNSTILE_SITE_KEY` / `TURNSTILE_SECRET_KEY` | Cloudflare Turnstile | 按需；两项都空 = 关闭，只填一半也视为关闭 |
 | `UPDATE_GITHUB_TOKEN` | 读 Release 用的 GitHub PAT | **必填**（自动更新依赖） |
 | `UPDATE_GITHUB_REPO` | `owner/repo` | 默认 `nhyzcms/club-management-website` |
+| `DB_ENGINE` / `DB_NAME` / `DB_USER` / `DB_PASSWORD` / `DB_HOST` / `DB_PORT` | 数据库切换与连接 | 留空 = SQLite；`DB_ENGINE=postgresql` 启用 PostgreSQL |
+| `REDIS_URL` | 缓存 + 频道层 | 留空 = v1；配置后可用 `GUNICORN_WORKERS` >1 |
+| `GUNICORN_WORKERS` | ASGI worker 数 | 默认 `1`；**须配 `REDIS_URL`** |
 
 逐项默认值、派生逻辑与相关测试见[配置参考](../configuration.md)。另有几个不在模板中、由代码读取的变量：`CLUB_SPAWN_UPDATER=0`（只起 web、不拉起更新守护进程，排障用）、`CLUB_UPDATER_SPAWNED`（由 `start.sh` 置 1）、`SERVICE_NAME`（更新器重载服务用，默认 `club`）。
 
@@ -253,7 +277,7 @@ sudo systemctl reload nginx
 
 - **轮询**：按站点策略 `update_poll_interval_seconds`（默认 900 秒）查 GitHub Release，下载 `club-<sha>.tar.gz` + `.sha256` 到 `backups/releases/`，支持 HTTP Range 断点续传、校验失败重下、最多 8 次指数退避重试；未完成的 `.part` 绝不参与应用。首次启动还会预取当前 `run/applied-release` 对应包，作为回滚保险。
 - **应用窗口**：`auto_update_enabled` 为真、当前处于 `[update_window_start_hour, update_window_end_hour)`（`update_timezone`，默认 `Asia/Shanghai` 01:00–03:00）、且距窗口结束还有 `update_apply_cutoff_minutes_before_end`（默认 30）分钟以上，才会开始应用。
-- **应用步骤**：写维护旗标（`drain` 拦截访问）→ 备份 SQLite 到 `backups/db-<时间戳>.sqlite3`（按 `update_db_backup_keep` 裁剪）→ 解包到 `backups/staging-*` → 替换代码树（`.env`、`db.sqlite3*`、`media`、`private_media`、`run`、`backups`、`.venv`、`.git` 一律排除）→ `uv sync --frozen` → `migrate` → `collectstatic` → 重载服务并健康检查（`systemctl is-active`）。
+- **应用步骤**：写维护旗标（`drain` 拦截访问）→ 备份数据库（SQLite `.backup` 或 PostgreSQL `pg_dump --clean`，写到 `backups/db-<时间戳>.sqlite3` / `.pg.sql`，按 `update_db_backup_keep` 裁剪）→ 解包到 `backups/staging-*` → 替换代码树（`.env`、`db.sqlite3*`、`media`、`private_media`、`run`、`backups`、`.venv`、`.git` 一律排除）→ `uv sync --frozen` → `migrate` → `collectstatic` → 重载服务并健康检查（`systemctl is-active`）。
 - **成功后**：写 `run/applied-release`，按 `update_release_keep` 裁剪旧包，撤下维护页。
 - **失败 / 窗口关闭**：自动回滚——恢复上一发行包代码树 + 应用前的 DB 快照 + 重载；若回滚后服务不健康，保留维护页。
 
@@ -293,7 +317,7 @@ sudo -u club HOME=$(getent passwd club | cut -d: -f6) bash -lc \
 
 ### 6.3 回滚
 
-回滚到任意一个以往的 Release。**只换代码树，不还原 SQLite**，以免丢上线后的数据（这与「应用失败时的自动回滚」不同——那条路径会恢复 apply 前的 DB 快照）：
+回滚到任意一个以往的 Release。**只换代码树，不还原数据库**（SQLite / PostgreSQL 同此），以免丢上线后的数据（这与「应用失败时的自动回滚」不同——那条路径会恢复 apply 前的 DB 快照）：
 
 ```bash
 cd /opt/club
@@ -323,11 +347,12 @@ cat /opt/club/run/applied-release
 
 | 内容 | 位置 | 说明 |
 |---|---|---|
-| 数据库 | `<安装目录>/db.sqlite3` | 全部业务数据 |
+| 数据库（SQLite） | `<安装目录>/db.sqlite3` | 缺省部署的全部业务数据 |
+| 数据库（PostgreSQL） | 本机 `club` 库（与站点同机） | `DB_ENGINE=postgresql` 时的全部业务数据 |
 | 公开媒体 | `<安装目录>/media/` | 头像、新闻封面、活动图片、教程、附件、考试误刊等 |
 | 私有媒体 | `<安装目录>/private_media/` | 身份证明（`IdentityProof`），**不在** `MEDIA_ROOT` 内，由鉴权视图服务 |
 | 发行包 | `<安装目录>/backups/releases/` | 更新器缓存，也是回滚依据 |
-| DB 快照 | `<安装目录>/backups/db-*.sqlite3` | 更新器每次应用前自动生成 |
+| DB 快照 | `<安装目录>/backups/db-*.sqlite3`（或 `db-*.pg.sql`） | 更新器每次应用前自动生成（按引擎分派） |
 
 更新器**不会**碰 `media` / `private_media` / `backups`（在同步排除清单里），因此这两处需要自行备份。
 
@@ -341,11 +366,20 @@ sqlite3 db.sqlite3 ".backup '/opt/club/backups/db-manual-$(date +%Y%m%d-%H%M%S).
 tar -czf backups/media-$(date +%Y%m%d).tar.gz media private_media
 ```
 
+PostgreSQL 用 `pg_dump`（普通 SQL 格式，可直接 `psql -f` 还原）：
+
+```bash
+cd /opt/club
+PGPASSWORD='<DB_PASSWORD>' pg_dump -h 127.0.0.1 -U club --clean --if-exists --no-owner --no-acl \
+  -f "backups/db-manual-$(date +%Y%m%d-%H%M%S).pg.sql" club
+tar -czf backups/media-$(date +%Y%m%d).tar.gz media private_media
+```
+
 建议保留最近 7–30 天版本，并同步到对象存储或 NAS。快照裁剪由站点策略 `update_db_backup_keep`（默认 5）控制，只作用于更新器自己生成的 `db-*.sqlite3`。
 
 ### 7.3 恢复
 
-**数据库**：
+**数据库（SQLite）**：
 
 ```bash
 sudo systemctl stop club
@@ -353,6 +387,16 @@ cd /opt/club
 rm -f db.sqlite3-journal db.sqlite3-wal db.sqlite3-shm
 cp backups/db-<时间戳>.sqlite3 db.sqlite3
 chown club:club db.sqlite3
+sudo systemctl start club
+```
+
+**数据库（PostgreSQL）**：
+
+```bash
+sudo systemctl stop club
+cd /opt/club
+PGPASSWORD='<DB_PASSWORD>' psql -h 127.0.0.1 -U club -v ON_ERROR_STOP=1 \
+  -f backups/db-<时间戳>.pg.sql club
 sudo systemctl start club
 ```
 
@@ -400,7 +444,7 @@ uv run python manage.py collectstatic --noinput
 
 SQLite 在并发写入时的典型问题：
 
-- 确认生产契约是 **`--workers 1`**（[ADR-0015](../adr/0015-channels-without-redis.md)）；加 worker 须先上 Redis channel layer 并另开 ADR。
+- SQLite 部署的契约是 **`--workers 1`**；要加 worker 先上 Redis 频道层（[ADR-0021](../adr/0021-postgresql-redis-and-multiworker.md)），并建议同时切 PostgreSQL（SQLite 多写者）。
 - 更新流程里 `migrate` 与 web 请求可能短暂并存，维护页正是为此先把访问拦下来（`drain` 步骤）——不要绕过维护旗标手工 `migrate`。
 - 避免大量热点写操作同时发生；必要时错峰批量操作。
 

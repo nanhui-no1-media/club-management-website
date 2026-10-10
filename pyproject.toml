@@ -7,6 +7,7 @@ requires-python = ">=3.14"
 dependencies = [
     "bleach>=6.4.0",
     "channels[daphne]>=4.3.2",
+    "channels-redis>=4.3.0",
     "django>=6.0.5",
     "django-cors-headers>=4.9.0",
     "django-filter>=25.2",
@@ -14,7 +15,9 @@ dependencies = [
     "drf-tus>=2.0.3",
     "gunicorn>=26.0.0",
     "pillow>=12.2.0",
+    "psycopg[binary]>=3.3.6",
     "python-dotenv>=1.2.2",
+    "redis>=8.1.0",
     "reportlab>=5.0.1",
     "uvicorn[standard]>=0.52.4",
 ]
